@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
-import pymysql
+from pathlib import Path
+import shutil
 import time
 from config.config_loader import get_database_config
 from selenium import webdriver
@@ -18,9 +19,27 @@ def create_chrome_options(*arguments):
     return options
 
 
+def _get_chromedriver_path():
+    env_path = os.environ.get('CHROMEDRIVER_PATH')
+    if env_path:
+        return env_path
+
+    cache_root = Path.home() / ".cache" / "selenium" / "chromedriver"
+    if cache_root.exists():
+        drivers = sorted(cache_root.glob("**/chromedriver"), reverse=True)
+        for driver in drivers:
+            if driver.is_file():
+                return str(driver)
+
+    path_driver = shutil.which("chromedriver")
+    if path_driver:
+        return path_driver
+    return None
+
+
 def create_chrome_driver(options=None):
     chrome_options = options or create_chrome_options()
-    chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
+    chromedriver_path = _get_chromedriver_path()
     if chromedriver_path:
         service = Service(chromedriver_path)
         return webdriver.Chrome(service=service, options=chrome_options)
@@ -28,6 +47,8 @@ def create_chrome_driver(options=None):
 
 
 def connect_mysql():
+    import pymysql
+
     db_config = get_database_config()
     missing_keys = [key for key in ("host", "user", "password", "name") if not db_config.get(key)]
     if missing_keys:

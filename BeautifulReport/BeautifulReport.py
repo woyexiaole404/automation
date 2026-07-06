@@ -15,13 +15,17 @@ import json
 import unittest
 import platform
 import base64
-from distutils.sysconfig import get_python_lib
+try:
+    from distutils.sysconfig import get_python_lib
+except ModuleNotFoundError:
+    from sysconfig import get_paths
+
+    def get_python_lib():
+        return get_paths()["purelib"]
 import traceback
 from functools import wraps
 
 __all__ = ['BeautifulReport']
-
-import pytest
 
 HTML_IMG_TEMPLATE = """
     <a href="data:image/png;base64, {}">
