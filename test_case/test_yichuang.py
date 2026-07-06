@@ -1,8 +1,6 @@
 from datetime import datetime
 import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from base.base import BasePage
+from base.base import BasePage, create_chrome_driver, create_chrome_options
 from base.project_path import img_code_file
 import unittest
 import ddddocr
@@ -23,10 +21,10 @@ def draw_yzm(self):     #识别提取验证码
 class Testsaas(unittest.TestCase):
 
     def setUp(self) -> None:
-        self.options = webdriver.ChromeOptions()
+        self.options = create_chrome_options()
         #options.add_experimental_option('detach', True)  # 不自动关闭浏览器
         self.options.add_argument('--start-maximized')  # 窗口最大化
-        self.driver = webdriver.Chrome(options=self.options)
+        self.driver = create_chrome_driver(options=self.options)
 
     def tearDown(self) -> None:
         self.driver.quit()

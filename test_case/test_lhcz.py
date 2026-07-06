@@ -1,8 +1,6 @@
 from datetime import datetime
 import time
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from base.base import BasePage
+from base.base import BasePage, create_chrome_driver
 from base.project_path import img_code_file
 import unittest
 import ddddocr
@@ -23,9 +21,7 @@ def draw_yzm(self):     #识别提取验证码
 class Testlhcz(unittest.TestCase):
 
     def setUp(self) -> None:
-        # TODO: 后续阶段再工程化 chromedriver 路径。
-        path = Service(r'D:\Python310\chromedriver.exe')
-        self.driver = webdriver.Chrome(service=path)
+        self.driver = create_chrome_driver()
         self.driver.maximize_window()
 
     def tearDown(self) -> None:

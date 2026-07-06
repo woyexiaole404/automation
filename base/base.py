@@ -1,8 +1,28 @@
 from datetime import datetime
+import os
 import pymysql
 import time
+from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+
+
+def create_chrome_options(*arguments):
+    options = webdriver.ChromeOptions()
+    for argument in arguments:
+        options.add_argument(argument)
+    return options
+
+
+def create_chrome_driver(options=None):
+    chrome_options = options or create_chrome_options()
+    chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
+    if chromedriver_path:
+        service = Service(chromedriver_path)
+        return webdriver.Chrome(service=service, options=chrome_options)
+    return webdriver.Chrome(options=chrome_options)
+
 
 def connect_mysql():
     connect = pymysql.Connect(
