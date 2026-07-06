@@ -8,21 +8,70 @@ class OpenWebLoginPage(BasePage):
     PASSWORD_INPUT = 'input[type="password"]'
     SUBMIT_BUTTON = 'button[type="submit"]'
     BODY = "body"
+    AUTH_TOKEN_KEYS = ("token", "access_token", "auth_token", "jwt")
+    LOGGED_IN_SELECTORS = (
+        'textarea',
+        '[data-testid="chat-input"]',
+        '[aria-label*="New Chat"]',
+        'a[href="/workspace"]',
+    )
 
     def open(self):
         self.go_url(get_web_base_url())
 
-    def login(self, email, password):
+    def clear_browser_state(self):
         self.open()
+        self.driver.delete_all_cookies()
+        self.driver.execute_script("window.localStorage.clear(); window.sessionStorage.clear();")
+        self.driver.execute_async_script(
+            """
+            const done = arguments[0];
+            const tasks = [];
+            if (window.caches && caches.keys) {
+                tasks.push(caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key)))));
+            }
+            if (window.indexedDB && indexedDB.databases) {
+                tasks.push(
+                    indexedDB.databases().then(databases => Promise.all(
+                        databases
+                            .filter(database => database.name)
+                            .map(database => new Promise(resolve => {
+                                const request = indexedDB.deleteDatabase(database.name);
+                                request.onsuccess = resolve;
+                                request.onerror = resolve;
+                                request.onblocked = resolve;
+                            }))
+                    ))
+                );
+            }
+            Promise.all(tasks).then(() => done(true)).catch(() => done(false));
+            """
+        )
+        self.open()
+
+    def login(self, email, password):
+        self.clear_browser_state()
         self.input_text(self.EMAIL_INPUT, email, by=By.CSS_SELECTOR)
         self.input_text(self.PASSWORD_INPUT, password, by=By.CSS_SELECTOR)
         self.click_element(self.SUBMIT_BUTTON, by=By.CSS_SELECTOR, timeout=10)
 
+    def has_auth_token(self):
+        return self.driver.execute_script(
+            """
+            const keys = arguments[0];
+            return keys.some(key => Boolean(window.localStorage.getItem(key) || window.sessionStorage.getItem(key)));
+            """,
+            list(self.AUTH_TOKEN_KEYS),
+        )
+
+    def has_logged_in_element(self):
+        return any(
+            self.is_element_visible(selector, by=By.CSS_SELECTOR, timeout=2)
+            for selector in self.LOGGED_IN_SELECTORS
+        )
+
     def is_login_successful(self):
         current_url = self.driver_url()
-        if "/auth" not in current_url:
-            return True
-
-        page_text = self.get_text(self.BODY, by=By.CSS_SELECTOR)
-        success_keywords = ("退出", "用户", "首页", "dashboard", "logout")
-        return any(keyword in page_text for keyword in success_keywords)
+        if "/auth" in current_url:
+            return False
+        return self.has_auth_token() and self.has_logged_in_element()

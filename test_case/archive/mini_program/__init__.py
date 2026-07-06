@@ -1,0 +1,1 @@
+"""Legacy mini program tests."""

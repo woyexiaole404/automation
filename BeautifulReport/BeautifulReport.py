@@ -264,8 +264,8 @@ class ReportTestResult(unittest.TestResult):
         output = self.complete_output()
         logs.append(output)
         logs.extend(self.error_or_failure_text(err))
-        self.failure_count += 1
-        self.add_test_type('失败', logs)
+        self.error_count += 1
+        self.add_test_type('错误', logs)
         if self.verbosity > 1:
             sys.stderr.write('F  ')
             sys.stderr.write(str(test))
