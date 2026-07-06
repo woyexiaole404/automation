@@ -1,5 +1,6 @@
 from base.base import BasePage
 from config.config_loader import get_web_base_url
+from selenium.webdriver.common.by import By
 
 
 class LocalAuthPage(BasePage):
@@ -8,9 +9,9 @@ class LocalAuthPage(BasePage):
 
     def login(self, email, password):
         self.open()
-        self.send_element('input[type="email"]', email)
-        self.send_element('input[type="password"]', password)
-        self.click_css_element('button[type="submit"]')
+        self.safe_input('input[type="email"]', email, by=By.CSS_SELECTOR)
+        self.safe_input('input[type="password"]', password, by=By.CSS_SELECTOR)
+        self.safe_click('button[type="submit"]', by=By.CSS_SELECTOR)
 
     def is_login_successful(self):
         current_url = self.driver_url()

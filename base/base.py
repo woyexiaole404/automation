@@ -7,6 +7,8 @@ from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 def create_chrome_options(*arguments):
@@ -79,6 +81,30 @@ class BasePage:
     def find(self, xpath, by=By.XPATH):
         element = self.driver.find_element(by, xpath)
         return element
+
+    def wait_present(self, value, by=By.XPATH, timeout=10):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.presence_of_element_located((by, value))
+        )
+
+    def wait_visible(self, value, by=By.XPATH, timeout=10):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.visibility_of_element_located((by, value))
+        )
+
+    def wait_clickable(self, value, by=By.XPATH, timeout=10):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable((by, value))
+        )
+
+    def safe_click(self, value, by=By.XPATH, timeout=10):
+        self.wait_clickable(value, by=by, timeout=timeout).click()
+
+    def safe_input(self, value, input_txt, by=By.XPATH, timeout=10, clear_first=True):
+        element = self.wait_visible(value, by=by, timeout=timeout)
+        if clear_first:
+            element.clear()
+        element.send_keys(input_txt)
 
     def click_id_element(self, element_id):
         self.find(element_id, by=By.ID).click()
