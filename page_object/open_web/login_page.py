@@ -21,9 +21,9 @@ class OpenWebLoginPage(BasePage):
 
     def clear_browser_state(self):
         self.open()
-        self.driver.delete_all_cookies()
-        self.driver.execute_script("window.localStorage.clear(); window.sessionStorage.clear();")
-        self.driver.execute_async_script(
+        self.delete_all_cookies()
+        self.execute_script("window.localStorage.clear(); window.sessionStorage.clear();")
+        self.execute_async_script(
             """
             const done = arguments[0];
             const tasks = [];
@@ -56,7 +56,7 @@ class OpenWebLoginPage(BasePage):
         self.click_element(self.SUBMIT_BUTTON, by=By.CSS_SELECTOR, timeout=10)
 
     def has_auth_token(self):
-        return self.driver.execute_script(
+        return self.execute_script(
             """
             const keys = arguments[0];
             return keys.some(key => Boolean(window.localStorage.getItem(key) || window.sessionStorage.getItem(key)));
@@ -71,7 +71,7 @@ class OpenWebLoginPage(BasePage):
         )
 
     def is_login_successful(self):
-        current_url = self.driver_url()
+        current_url = self.get_current_url()
         if "/auth" in current_url:
             return False
         return self.has_auth_token() and self.has_logged_in_element()

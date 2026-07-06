@@ -92,11 +92,16 @@ class Tool:
         return result
 
 class BasePage:
+    DEFAULT_TIMEOUT = 10
+
     def __init__(self, driver):
         self.driver = driver
 
-    def driver_url(self): #获取当前页面url
+    def get_current_url(self):
         return self.driver.current_url
+
+    def driver_url(self): #获取当前页面url
+        return self.get_current_url()
 
     def go_url(self, url):
         self.driver.get(url)
@@ -105,46 +110,57 @@ class BasePage:
         element = self.driver.find_element(by, value)
         return element
 
-    def wait_present(self, value, by=By.XPATH, timeout=10):
+    def wait_present(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         return WebDriverWait(self.driver, timeout).until(
             EC.presence_of_element_located((by, value))
         )
 
-    def wait_visible(self, value, by=By.XPATH, timeout=10):
+    def wait_visible(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         return WebDriverWait(self.driver, timeout).until(
             EC.visibility_of_element_located((by, value))
         )
 
-    def wait_clickable(self, value, by=By.XPATH, timeout=10):
+    def wait_clickable(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         return WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable((by, value))
         )
 
-    def safe_click(self, value, by=By.XPATH, timeout=10):
+    def safe_click(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         self.click_element(value, by=by, timeout=timeout)
 
-    def safe_input(self, value, input_txt, by=By.XPATH, timeout=10, clear_first=True):
+    def safe_input(
+        self,
+        value,
+        input_txt,
+        by=By.XPATH,
+        timeout=DEFAULT_TIMEOUT,
+        clear_first=True,
+    ):
         self.input_text(value, input_txt, by=by, timeout=timeout, clear_first=clear_first)
 
     def click_id_element(self, element_id):
-        self.find(element_id, by=By.ID).click()
+        self.click_element(element_id, by=By.ID)
 
     def click_css_element(self, css):
-        self.find(css, By.CSS_SELECTOR).click()
+        self.click_element(css, by=By.CSS_SELECTOR)
 
-    def click_element(self, value, by=By.XPATH, timeout=None):
-        if timeout is None:
-            self.find(value, by=by).click()
-            return
+    def click_element(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         self.wait_clickable(value, by=by, timeout=timeout).click()
 
-    def input_text(self, value, input_txt, by=By.XPATH, timeout=10, clear_first=True):
+    def input_text(
+        self,
+        value,
+        input_txt,
+        by=By.XPATH,
+        timeout=DEFAULT_TIMEOUT,
+        clear_first=True,
+    ):
         element = self.wait_visible(value, by=by, timeout=timeout)
         if clear_first:
             element.clear()
         element.send_keys(input_txt)
 
-    def get_text(self, value, by=By.XPATH, timeout=10):
+    def get_text(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         element = self.wait_present(value, by=by, timeout=timeout)
         return element.get_attribute('textContent')
 
@@ -164,8 +180,17 @@ class BasePage:
         self.driver.save_screenshot(str(file_path))
         return str(file_path)
 
+    def delete_all_cookies(self):
+        self.driver.delete_all_cookies()
+
+    def execute_script(self, script, *args):
+        return self.driver.execute_script(script, *args)
+
+    def execute_async_script(self, script, *args):
+        return self.driver.execute_async_script(script, *args)
+
     def send_element(self, xpath, input_txt):
-        self.find(xpath).send_keys(input_txt)
+        self.input_text(xpath, input_txt, clear_first=False)
 
     def clear_element(self, xpath):
         self.find(xpath).clear()
@@ -213,7 +238,7 @@ class BasePage:
         time.sleep(2)
 
     def get_txt(self, xpath):
-        return self.find(xpath).get_attribute('textContent')
+        return self.get_text(xpath)
 
     def click_js(self, xpath):
         ele = self.find(xpath)
