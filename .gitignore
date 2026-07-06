@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+
+# 测试报告
+report/
+
+# 截图
+img/
+
+# 日志
+logs/
+
+# Python环境
+venv/
+.env/
+
+# 临时文件
+*.log
