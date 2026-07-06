@@ -18,6 +18,9 @@ img/
 # 日志
 logs/
 
+# 本机配置
+config/config.yaml
+
 # Python环境
 venv/
 .env/

@@ -1,0 +1,34 @@
+# Copy this file to config/config.yaml for local use.
+# Do not commit config/config.yaml.
+# All values below are placeholders. Do not put real secrets in this example.
+
+database:
+  host: "YOUR_DB_HOST"
+  port: 3306
+  user: "YOUR_DB_USER"
+  password: "YOUR_DB_PASSWORD"
+  name: "YOUR_DB_NAME"
+  charset: "utf8"
+
+ui:
+  shanghu:
+    username: "YOUR_SHANGHU_USERNAME"
+    password: "YOUR_SHANGHU_PASSWORD"
+  lhcz:
+    username: "YOUR_LHCZ_USERNAME"
+    password: "YOUR_LHCZ_PASSWORD"
+  yichuang:
+    username: "YOUR_YICHUANG_USERNAME"
+    password: "YOUR_YICHUANG_PASSWORD"
+
+api:
+  authorization: "YOUR_API_AUTHORIZATION"
+  clientauthorization: "YOUR_CLIENT_AUTHORIZATION"
+  ad_preference: "YOUR_AD_PREFERENCE"
+
+selenium:
+  chromedriver_path: "OPTIONAL_CHROMEDRIVER_PATH"
+
+minium:
+  project_path: "YOUR_MINI_PROGRAM_PROJECT_PATH"
+  dev_tool_path: "YOUR_WECHAT_DEVTOOLS_CLI_PATH"
