@@ -1,3 +1,4 @@
+import argparse
 import sys
 import unittest
 from datetime import datetime
@@ -5,8 +6,11 @@ from pathlib import Path
 
 
 TEST_CASE_DIR = Path(__file__).resolve().parent
-OPEN_WEB_TEST_DIR = TEST_CASE_DIR / "open_web"
 PROJECT_ROOT = TEST_CASE_DIR.parent
+DEFAULT_PROJECT = "open_web"
+PROJECT_TEST_DIRS = {
+    "open_web": TEST_CASE_DIR / "open_web",
+}
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -15,19 +19,57 @@ from BeautifulReport import BeautifulReport
 from base.project_path import report_path
 
 
-def _discover_test_files():
+def _project_test_dir(project):
+    try:
+        return PROJECT_TEST_DIRS[project]
+    except KeyError as error:
+        supported_projects = ", ".join(sorted(PROJECT_TEST_DIRS))
+        raise ValueError(
+            f"Unsupported project '{project}'. Supported projects: {supported_projects}."
+        ) from error
+
+
+def _test_pattern(module):
+    if module is None:
+        return "test_*.py"
+    if not module.isidentifier():
+        raise ValueError(
+            f"Invalid module '{module}'. Use a Python module name such as 'login'."
+        )
+    return f"test_{module}.py"
+
+
+def _discover_test_files(project=DEFAULT_PROJECT, module=None):
+    project_test_dir = _project_test_dir(project)
+    pattern = _test_pattern(module)
     return sorted(
         path.relative_to(TEST_CASE_DIR).as_posix()
-        for path in OPEN_WEB_TEST_DIR.rglob("test_*.py")
+        for path in project_test_dir.rglob(pattern)
     )
 
 
-def _build_suite():
+def _build_suite(project=DEFAULT_PROJECT, module=None):
+    project_test_dir = _project_test_dir(project)
     return unittest.defaultTestLoader.discover(
-        start_dir=str(OPEN_WEB_TEST_DIR),
-        pattern="test_*.py",
+        start_dir=str(project_test_dir),
+        pattern=_test_pattern(module),
         top_level_dir=str(TEST_CASE_DIR),
     )
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Run project tests with BeautifulReport.")
+    parser.add_argument(
+        "--project",
+        choices=sorted(PROJECT_TEST_DIRS),
+        default=DEFAULT_PROJECT,
+        help=f"Project to run (default: {DEFAULT_PROJECT}).",
+    )
+    parser.add_argument(
+        "--module",
+        help="Module name without the test_ prefix or .py suffix, for example: login.",
+    )
+    return parser.parse_args()
 
 
 def _configure_beautiful_report_template():
@@ -36,18 +78,21 @@ def _configure_beautiful_report_template():
         BeautifulReport.config_tmp_path = str(template_path)
 
 
-def run():
-    discovered_files = _discover_test_files()
+def run(project=DEFAULT_PROJECT, module=None):
+    discovered_files = _discover_test_files(project, module)
 
     print("Discovered test files:")
     for file_name in discovered_files:
         print(f"  - {file_name}")
+    sys.stdout.flush()
 
     if not discovered_files:
-        raise RuntimeError(f"No test_*.py files found under {OPEN_WEB_TEST_DIR}.")
+        pattern = _test_pattern(module)
+        project_test_dir = _project_test_dir(project)
+        raise RuntimeError(f"No {pattern} files found under {project_test_dir}.")
 
     _configure_beautiful_report_template()
-    suite_tests = _build_suite()
+    suite_tests = _build_suite(project, module)
     report_output_dir = report_path()
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"automation_{now}"
@@ -68,4 +113,5 @@ def run():
 
 
 if __name__ == "__main__":
-    sys.exit(run())
+    args = _parse_args()
+    sys.exit(run(project=args.project, module=args.module))
