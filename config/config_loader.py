@@ -87,6 +87,30 @@ def get_ui_account(name):
     }
 
 
+def get_web_base_url():
+    return get_config_value("web.base_url", "WEB_BASE_URL", "http://localhost:3000/auth")
+
+
+def get_account(role="default"):
+    env_prefix = role.upper()
+    return {
+        "email": get_config_value(f"accounts.{role}.email", f"{env_prefix}_ACCOUNT_EMAIL"),
+        "password": get_config_value(f"accounts.{role}.password", f"{env_prefix}_ACCOUNT_PASSWORD"),
+    }
+
+
+def get_default_account():
+    return get_account("default")
+
+
+def get_default_invalid_password():
+    return get_config_value(
+        "accounts.default.invalid_password",
+        "DEFAULT_ACCOUNT_INVALID_PASSWORD",
+        "INVALID_TEST_PASSWORD",
+    )
+
+
 def get_api_config():
     return {
         "authorization": get_config_value("api.authorization", "API_AUTHORIZATION"),

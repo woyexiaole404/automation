@@ -10,6 +10,27 @@ database:
   name: "YOUR_DB_NAME"
   charset: "utf8"
 
+web:
+  base_url: "http://localhost:3000/auth"
+
+accounts:
+  default:
+    email: "YOUR_TEST_EMAIL"
+    password: "YOUR_TEST_PASSWORD"
+    invalid_password: "YOUR_INVALID_TEST_PASSWORD"
+  admin:
+    email: "YOUR_ADMIN_EMAIL"
+    password: "YOUR_ADMIN_PASSWORD"
+  buyer:
+    email: "YOUR_BUYER_EMAIL"
+    password: "YOUR_BUYER_PASSWORD"
+  seller:
+    email: "YOUR_SELLER_EMAIL"
+    password: "YOUR_SELLER_PASSWORD"
+  disabled_user:
+    email: "YOUR_DISABLED_USER_EMAIL"
+    password: "YOUR_DISABLED_USER_PASSWORD"
+
 ui:
   shanghu:
     username: "YOUR_SHANGHU_USERNAME"
