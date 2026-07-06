@@ -8,8 +8,10 @@ from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from base.project_path import img_file
 
 
 def create_chrome_options(*arguments):
@@ -99,8 +101,8 @@ class BasePage:
     def go_url(self, url):
         self.driver.get(url)
 
-    def find(self, xpath, by=By.XPATH):
-        element = self.driver.find_element(by, xpath)
+    def find(self, value, by=By.XPATH):
+        element = self.driver.find_element(by, value)
         return element
 
     def wait_present(self, value, by=By.XPATH, timeout=10):
@@ -119,13 +121,10 @@ class BasePage:
         )
 
     def safe_click(self, value, by=By.XPATH, timeout=10):
-        self.wait_clickable(value, by=by, timeout=timeout).click()
+        self.click_element(value, by=by, timeout=timeout)
 
     def safe_input(self, value, input_txt, by=By.XPATH, timeout=10, clear_first=True):
-        element = self.wait_visible(value, by=by, timeout=timeout)
-        if clear_first:
-            element.clear()
-        element.send_keys(input_txt)
+        self.input_text(value, input_txt, by=by, timeout=timeout, clear_first=clear_first)
 
     def click_id_element(self, element_id):
         self.find(element_id, by=By.ID).click()
@@ -133,8 +132,37 @@ class BasePage:
     def click_css_element(self, css):
         self.find(css, By.CSS_SELECTOR).click()
 
-    def click_element(self, xpath):
-        self.find(xpath).click()
+    def click_element(self, value, by=By.XPATH, timeout=None):
+        if timeout is None:
+            self.find(value, by=by).click()
+            return
+        self.wait_clickable(value, by=by, timeout=timeout).click()
+
+    def input_text(self, value, input_txt, by=By.XPATH, timeout=10, clear_first=True):
+        element = self.wait_visible(value, by=by, timeout=timeout)
+        if clear_first:
+            element.clear()
+        element.send_keys(input_txt)
+
+    def get_text(self, value, by=By.XPATH, timeout=10):
+        element = self.wait_present(value, by=by, timeout=timeout)
+        return element.get_attribute('textContent')
+
+    def is_element_visible(self, value, by=By.XPATH, timeout=3):
+        try:
+            self.wait_visible(value, by=by, timeout=timeout)
+            return True
+        except TimeoutException:
+            return False
+
+    def take_screenshot(self, file_path=None):
+        if file_path is None:
+            now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            file_path = img_file(f"screenshot_{now}.png")
+        file_path = Path(file_path)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        self.driver.save_screenshot(str(file_path))
+        return str(file_path)
 
     def send_element(self, xpath, input_txt):
         self.find(xpath).send_keys(input_txt)
