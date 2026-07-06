@@ -16,6 +16,12 @@ def _parse_scalar(value):
     return value
 
 
+def _to_int(value, default=None):
+    if value in (None, ""):
+        return default
+    return int(value)
+
+
 def _load_simple_yaml(path):
     data = {}
     stack = [(-1, data)]
@@ -65,7 +71,7 @@ def get_config_value(path, env_var=None, default=None):
 def get_database_config():
     return {
         "host": get_config_value("database.host", "DB_HOST"),
-        "port": get_config_value("database.port", "DB_PORT", 3306),
+        "port": _to_int(get_config_value("database.port", "DB_PORT", 3306), 3306),
         "user": get_config_value("database.user", "DB_USER"),
         "password": get_config_value("database.password", "DB_PASSWORD"),
         "name": get_config_value("database.name", "DB_NAME"),

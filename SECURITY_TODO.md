@@ -8,10 +8,9 @@ Do not copy real secrets into this document.
 ### Database
 
 - `base/base.py`
-  - Hardcoded MySQL host.
-  - Hardcoded MySQL username.
-  - Hardcoded MySQL password.
-  - Hardcoded database name.
+  - Migrated MySQL host, port, username, password, database name, and charset to `config/config_loader.py`.
+  - Values are now read from environment variables first, then `config/config.yaml`.
+  - `config/config.yaml.example` contains placeholder values only.
 
 ### UI Test Accounts
 
@@ -56,7 +55,7 @@ Do not copy real secrets into this document.
 ## Recommended Migration Order
 
 1. Keep existing tests unchanged while introducing config loading.
-2. Move database settings from `base/base.py` to environment variables or `config/config.yaml`.
+2. Database settings from `base/base.py` have been migrated to environment variables or `config/config.yaml`.
 3. Move API tokens from API scripts to environment variables or `config/config.yaml`.
 4. Move UI test accounts to environment variables or `config/config.yaml`.
 5. Move mini program local paths from `test_case/config.json` to local-only config.
@@ -76,6 +75,12 @@ Examples:
 - `DB_CHARSET`
 - `SHANGHU_USERNAME`
 - `SHANGHU_PASSWORD`
+- `XINLIAN_USERNAME`
+- `XINLIAN_PASSWORD`
+- `LHCZ_USERNAME`
+- `LHCZ_PASSWORD`
+- `YICHUANG_USERNAME`
+- `YICHUANG_PASSWORD`
 - `API_AUTHORIZATION`
 - `API_CLIENTAUTHORIZATION`
 - `API_AD_PREFERENCE`

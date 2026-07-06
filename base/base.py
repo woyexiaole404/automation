@@ -2,6 +2,7 @@ from datetime import datetime
 import os
 import pymysql
 import time
+from config.config_loader import get_database_config
 from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
 from selenium.webdriver.chrome.service import Service
@@ -25,13 +26,21 @@ def create_chrome_driver(options=None):
 
 
 def connect_mysql():
+    db_config = get_database_config()
+    missing_keys = [key for key in ("host", "user", "password", "name") if not db_config.get(key)]
+    if missing_keys:
+        raise RuntimeError(
+            "Missing database config: {}. Set environment variables or config/config.yaml.".format(
+                ", ".join(missing_keys)
+            )
+        )
     connect = pymysql.Connect(
-        host='47.101.223.148',
-        port=3306,
-        user='admin2',
-        passwd='hy213456',
-        db='recharge',
-        charset='utf8'
+        host=db_config["host"],
+        port=db_config["port"],
+        user=db_config["user"],
+        passwd=db_config["password"],
+        db=db_config["name"],
+        charset=db_config["charset"],
     )
     return connect
 
