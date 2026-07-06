@@ -6,120 +6,213 @@
 2. 默认保持当前项目风格：`unittest` 测试结构、`BeautifulReport` 报告入口、`BasePage` 公共操作、`page_object` 页面对象分层。
 3. 修改必须基于当前代码实际情况，不虚构不存在的模块、配置或运行入口。
 4. 优先做低风险、小范围、可验证的改动。
-5. 不主动改变现有业务流程、测试步骤、断言语义和测试用例覆盖范围。
+5. 不主动改变现有业务流程、测试步骤、断言语义和测试覆盖范围。
 6. 新增说明文档、依赖清单、路径工具等维护性文件时，应说明来源和适用范围。
 
-## Codex 工作规则
+## 重大框架修改确认规则
 
-1. 每次开始工作必须先阅读 `FRAMEWORK.md`。
-2. 涉及运行方式、依赖、项目说明时，同时参考 `README.md` 和 `CODEX_GUIDE.md`。
-3. 修改前先确认任务范围，只处理用户指定的问题。
-4. 不确定是否属于重构时，按重构处理，必须先询问。
-5. 如果预计或实际修改超过 10 个文件，必须停止并说明原因。
-6. 输出结论时必须说明：
-   - 修改了哪些文件。
-   - 为什么修改。
-   - 如何验证。
-7. 不运行真实测试，除非用户明确要求。真实测试包括启动浏览器、访问外部站点、连接数据库、调用真实 API。
+任何涉及以下内容的修改，都必须先输出设计方案，等待用户确认后才能实施：
 
-## 禁止事项
+1. 框架目录结构
+2. `test_case/run.py` 运行入口
+3. `BasePage`
+4. `DriverManager`
+5. `Config` 配置中心
+6. Page Object 设计规范
+7. 测试发现规则
+8. BeautifulReport 集成方式
+9. Git 分支/Tag 流程
+10. CI/CD 配置
 
-1. 不允许修改目录结构。
-2. 不允许删除任何测试用例。
-3. 不允许未经确认修改业务流程。
-4. 不允许未经确认做重构。
-5. 不允许把账号、密码、Token、数据库连接等敏感信息扩散到新文件。
-6. 不允许在未确认的情况下替换测试框架、报告框架或自动化工具。
-7. 不允许把 `api.py` 这类直接执行脚本当作普通可导入模块随意调用。
-8. 不允许因为本机环境不可用就改动测试逻辑绕过失败。
+## Git 工作流
 
-## 每次修改后的验证要求
-
-1. 修改完成后必须执行：
+1. 所有开发默认在 `develop` 分支进行。
+2. `main` 分支只保存稳定版本，不直接在 `main` 上进行日常开发。
+3. 每完成一个功能必须依次执行：
 
 ```bash
-python -m compileall .
+git status
+git add <本次功能相关文件>
+git commit
 ```
 
-2. 如果当前环境没有 `python` 命令，可以补充执行：
+4. 提交前确认没有混入无关文件、本地缓存和运行产物。
+5. 功能验证稳定后再执行 `push`。
+6. 重要版本使用 Git Tag 标记。
+7. 每次提交只聚焦一个主题，提交说明应写清楚修改目的和验证方式。
 
-```bash
-python3 -m compileall .
-```
-
-3. 如果用户明确要求使用 `python3`，执行：
-
-```bash
-python3 -m compileall .
-```
-
-4. 编译检查只验证 Python 语法，不代表 UI、API、小程序测试通过。
-5. 如果没有运行真实测试，必须明确说明没有启动浏览器、没有连接数据库、没有调用真实接口。
-
-## Git 提交规范
-
-1. 每次提交聚焦一个主题。
-2. 提交前查看变更范围，确认没有混入无关文件。
-3. 不提交本地缓存和运行产物，例如 `__pycache__`、`.DS_Store`、临时日志、临时截图。
-4. 文档类提交建议使用：
+建议提交类型：
 
 ```text
 docs: update project documentation
+test: update automation tests
+chore: improve framework or project tooling
 ```
 
-5. 依赖类提交建议使用：
+## 测试范围
+
+1. 默认测试范围仅为：
 
 ```text
-chore: add requirements file
+test_case/open_web/
 ```
 
-6. 测试维护类提交建议使用：
+2. `archive/` 目录永远不参与默认测试发现和默认测试执行。
+3. 默认运行入口为：
+
+```bash
+python3 test_case/run.py
+```
+
+4. 不要为了验证单个页面或单个模块而运行全部测试。
+
+## 测试执行规则
+
+### 修改单个模块
+
+修改单个 Page Object 或对应测试文件时，例如：
+
+- `login_page.py`
+- `test_login.py`
+
+只运行对应模块测试：
+
+```bash
+python3 test_case/run.py --module login
+```
+
+不要运行整个项目。
+
+### 修改 Open Web 多个页面
+
+同时修改 Dashboard、User、Order 等多个 Open Web 页面或其测试时，执行：
+
+```bash
+python3 test_case/run.py
+```
+
+该命令用于 Open Web 回归测试。
+
+### 修改公共框架
+
+修改下列公共能力时：
+
+- `BasePage`
+- `DriverManager`
+- `Config`
+- `run.py`
+- `WaitManager`
+
+先执行：
+
+```bash
+python3 -m compileall .
+```
+
+再执行：
+
+```bash
+python3 test_case/run.py
+```
+
+### Git 提交前
+
+提交 Git 前统一执行：
+
+```bash
+python3 test_case/run.py
+```
+
+确认 Open Web 全部测试通过后再提交。
+
+## 新功能开发
+
+新增 UI 自动化功能必须遵循以下流程，不得跳过任何步骤：
 
 ```text
-test: update automation test maintenance
+Page Object
+    ↓
+Test Case
+    ↓
+Run
+    ↓
+BeautifulReport
+    ↓
+Git Commit
 ```
 
-7. 路径、配置、运行入口等工程化提交建议使用：
+1. 页面定位器和业务操作放在对应 Page Object 中。
+2. 测试步骤和断言放在对应 Test Case 中。
+3. 通过统一运行入口执行测试。
+4. 确认 BeautifulReport 正常生成并检查结果。
+5. 验证通过后进行 Git Commit。
+
+## BasePage 原则
+
+1. 所有 Open Web 页面必须复用 `base/base.py` 中的 `BasePage`。
+2. Page Object 优先调用 BasePage 提供的等待、点击、输入、文本读取、URL 获取和截图等公共方法。
+3. 不得在测试用例中大量编写 Selenium 原生操作。
+4. 通用 Selenium 操作应先沉淀到 BasePage，再由 Page Object 复用。
+5. 页面等待优先使用显式等待，不新增固定 `time.sleep()`。
+
+## AI（Codex）执行规则
+
+1. 默认不要在用户未明确要求时自动修改代码。
+2. 开始任务前必须阅读 `FRAMEWORK.md`；涉及运行方式、依赖或项目说明时，同时阅读 `CODEX_GUIDE.md` 和 `README.md`。
+3. 修改前先确认任务范围，只处理用户指定的问题。
+4. 不确定是否属于重构时，按重构处理，先等待用户确认。
+5. 标准工作流程为：
 
 ```text
-chore: improve project path handling
+分析
+  ↓
+修改
+  ↓
+验证
+  ↓
+停止
+  ↓
+等待用户确认
 ```
 
-8. 提交说明应写清楚验证方式，例如是否执行过 `python3 -m compileall .`。
+6. 完成验证后停止，不进行无限循环修改。
+7. 最终输出必须说明：
+   - 修改了哪些文件。
+   - 为什么修改。
+   - 如何验证。
+   - 是否存在未完成或无法验证的事项。
 
-## UI 自动化维护规则
+## AI 修改限制
 
-1. UI 自动化测试当前主要位于：
-   - `test_case/test_shanghu.py`
-   - `test_case/test_xinlian.py`
-   - `test_case/test_lhcz.py`
-   - `test_case/test_yichuang.py`
-2. 公共浏览器页面操作优先复用 `base/base.py` 中的 `BasePage`。
-3. 可复用页面流程优先放入 `page_object/`，当前实际存在的页面对象是 `page_object/index_page.py` 中的 `shanghu`。
-4. 不随意修改登录流程、页面跳转顺序和断言目标。
-5. 不随意删除 `save_img()`、`step_img()`、`get_yzm()`、`draw_yzm()` 等截图和验证码相关方法。
-6. ChromeDriver 路径仍有历史硬编码，后续工程化必须保持原有运行方式兼容。
-7. 固定等待 `time.sleep()` 和绝对 XPath 可以作为后续优化点，但优化前应单独评估风险。
-8. UI 测试会启动真实浏览器并访问真实地址，默认不要在维护任务中直接运行。
+1. 单次任务最多修改 5 个文件。
+2. 单次任务最多运行测试 3 次。
+3. 测试连续失败时立即停止，不继续反复修改或重跑。
+4. 连续失败后必须输出：
+   - 当前失败原因。
+   - 已尝试的方法。
+   - 下一步建议。
+5. 输出失败信息后停止，等待用户确认。
+6. 不允许因为本机环境不可用而修改测试逻辑绕过失败。
 
-## API 自动化维护规则
+## 禁止事项
 
-1. API 自动化相关文件当前包括：
-   - `test_case/test_api.py`
-   - `test_case/api.py`
-2. `test_case/test_api.py` 是 `unittest` 测试文件。
-3. `test_case/api.py` 是直接执行的 API 调试脚本，运行时会立即发起 HTTP 请求。
-4. 不随意修改接口地址、请求头、Token、请求体和断言。
-5. 不把真实 API 调用作为默认验证步骤。
-6. 如需新增 API 测试，优先使用 `unittest.TestCase`，避免导入即执行。
-7. 涉及 `verify=False`、Authorization、clientauthorization 等内容时，只做必要范围内维护，避免扩大敏感信息暴露。
+除非用户明确要求，否则禁止：
+
+1. 删除历史项目或历史测试资产。
+2. 修改 `archive/` 目录。
+3. 修改旧商户后台业务。
+4. 修改旧 API 测试。
+5. 修改旧小程序测试。
+6. 删除任何测试用例。
+7. 修改既有业务流程、测试步骤或断言语义。
+8. 未经确认进行重构、替换测试框架或替换报告框架。
+9. 把账号、密码、Token、数据库连接等敏感信息扩散到新文件。
+10. 把 `api.py` 等直接执行脚本当作普通可导入模块调用。
 
 ## 配置安全规则
 
-1. 当前项目中存在硬编码账号、密码、Token、数据库连接、外部 URL 和本机路径。
-2. 新增文件时不要复制、扩散或重新整理敏感值。
-3. 文档中只描述敏感信息存在的位置和风险，不重复写具体值。
-4. 后续配置外置化必须分阶段进行，并保持当前测试入口兼容。
-5. `.env`、本机私有配置、真实 Token 文件不应提交到仓库。
-6. 小程序配置当前位于 `test_case/config.json`，其中包含本机路径；修改前应确认运行环境和 minium 使用方式。
-7. 数据库连接当前位于 `base/base.py`；任何外置化改造都必须先确认，不直接改变查询行为。
+1. 新增文件时不要复制、扩散或重新整理敏感值。
+2. 文档中只描述敏感信息存在的位置和风险，不重复写具体值。
+3. 配置外置化必须分阶段进行，并保持当前测试入口兼容。
+4. `.env`、本机私有配置、真实 Token 文件不应提交到仓库。
+5. 数据库或外部服务配置的调整不得直接改变现有查询和业务行为。

@@ -1,51 +1,22 @@
 from datetime import datetime
-import os
 from pathlib import Path
-import shutil
 import time
 from config.config_loader import get_database_config
-from selenium import webdriver
 from selenium.webdriver import Keys, ActionChains
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from base.driver_manager import DriverManager
 from base.project_path import img_file
 
 
 def create_chrome_options(*arguments):
-    options = webdriver.ChromeOptions()
-    for argument in arguments:
-        options.add_argument(argument)
-    return options
-
-
-def _get_chromedriver_path():
-    env_path = os.environ.get('CHROMEDRIVER_PATH')
-    if env_path:
-        return env_path
-
-    cache_root = Path.home() / ".cache" / "selenium" / "chromedriver"
-    if cache_root.exists():
-        drivers = sorted(cache_root.glob("**/chromedriver"), reverse=True)
-        for driver in drivers:
-            if driver.is_file():
-                return str(driver)
-
-    path_driver = shutil.which("chromedriver")
-    if path_driver:
-        return path_driver
-    return None
+    return DriverManager.create_options(extra_arguments=arguments)
 
 
 def create_chrome_driver(options=None):
-    chrome_options = options or create_chrome_options()
-    chromedriver_path = _get_chromedriver_path()
-    if chromedriver_path:
-        service = Service(chromedriver_path)
-        return webdriver.Chrome(service=service, options=chrome_options)
-    return webdriver.Chrome(options=chrome_options)
+    return DriverManager(options=options).get_driver()
 
 
 def connect_mysql():
