@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+import re
 import time
 from config.config_loader import get_database_config
 from selenium.webdriver import Keys, ActionChains
@@ -8,7 +9,11 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from base.driver_manager import DriverManager
+from base.logger import get_logger
 from base.project_path import img_file
+
+
+logger = get_logger(__name__)
 
 
 def create_chrome_options(*arguments):
@@ -17,6 +22,25 @@ def create_chrome_options(*arguments):
 
 def create_chrome_driver(options=None):
     return DriverManager(options=options).get_driver()
+
+
+def _normalize_screenshot_name(name):
+    normalized_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", name or "screenshot").strip("_")
+    return normalized_name or "screenshot"
+
+
+def take_screenshot(driver, name=None, file_path=None):
+    if file_path is None:
+        now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        screenshot_name = _normalize_screenshot_name(name)
+        file_path = img_file(f"{screenshot_name}_{now}.png")
+
+    file_path = Path(file_path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    driver.save_screenshot(str(file_path))
+    screenshot_path = str(file_path)
+    logger.info("Screenshot saved: %s", screenshot_path)
+    return screenshot_path
 
 
 def connect_mysql():
@@ -142,14 +166,8 @@ class BasePage:
         except TimeoutException:
             return False
 
-    def take_screenshot(self, file_path=None):
-        if file_path is None:
-            now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            file_path = img_file(f"screenshot_{now}.png")
-        file_path = Path(file_path)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        self.driver.save_screenshot(str(file_path))
-        return str(file_path)
+    def take_screenshot(self, file_path=None, name=None):
+        return take_screenshot(self.driver, name=name, file_path=file_path)
 
     def delete_all_cookies(self):
         self.driver.delete_all_cookies()
