@@ -1,0 +1,11 @@
+valid_login:
+  description: "有效账号登录成功"
+
+invalid_password:
+  description: "错误密码登录失败"
+
+expected_success:
+  login_success: true
+
+expected_failure:
+  login_success: false
