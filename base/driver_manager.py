@@ -3,8 +3,12 @@ from pathlib import Path
 import shutil
 import tempfile
 
+from base.logger import get_logger
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+
+
+logger = get_logger(__name__)
 
 
 class DriverManager:
@@ -84,19 +88,35 @@ class DriverManager:
         return str(max(candidates, key=lambda path: path.stat().st_mtime))
 
     @classmethod
+    def _resolve_driver(cls):
+        driver_path = cls._driver_from_environment()
+        if driver_path:
+            return driver_path, "CHROMEDRIVER_PATH"
+
+        driver_path = cls._driver_from_selenium_cache()
+        if driver_path:
+            return driver_path, "Selenium Cache"
+
+        driver_path = shutil.which("chromedriver")
+        if driver_path:
+            return driver_path, "system PATH"
+
+        return None, "Selenium Manager"
+
+    @classmethod
     def _resolve_driver_path(cls):
-        return (
-            cls._driver_from_environment()
-            or cls._driver_from_selenium_cache()
-            or shutil.which("chromedriver")
-        )
+        driver_path, _ = cls._resolve_driver()
+        return driver_path
 
     def get_driver(self):
         if self._driver is not None:
             return self._driver
 
+        logger.info("Starting Chrome driver, headless=%s", self.headless)
+
         if self.options is None:
             self._profile_dir = tempfile.mkdtemp(prefix="open_web_chrome_")
+            logger.info("Using temporary Chrome profile: %s", self._profile_dir)
             options = self.create_options(
                 headless=self.headless,
                 window_size=self.window_size,
@@ -104,10 +124,12 @@ class DriverManager:
                 profile_dir=self._profile_dir,
             )
         else:
+            logger.info("Using provided ChromeOptions")
             options = self.options
 
         try:
-            driver_path = self._resolve_driver_path()
+            driver_path, driver_source = self._resolve_driver()
+            logger.info("Chrome driver source: %s", driver_source)
             if driver_path:
                 self._driver = webdriver.Chrome(
                     service=Service(driver_path),
@@ -116,6 +138,7 @@ class DriverManager:
             else:
                 self._driver = webdriver.Chrome(options=options)
         except Exception:
+            logger.exception("Failed to start Chrome driver")
             if self._profile_dir:
                 shutil.rmtree(self._profile_dir, ignore_errors=True)
                 self._profile_dir = None
@@ -125,9 +148,11 @@ class DriverManager:
     def quit_driver(self):
         try:
             if self._driver is not None:
+                logger.info("Quit Chrome driver")
                 self._driver.quit()
         finally:
             self._driver = None
             if self._profile_dir:
+                logger.info("Remove temporary Chrome profile: %s", self._profile_dir)
                 shutil.rmtree(self._profile_dir, ignore_errors=True)
                 self._profile_dir = None

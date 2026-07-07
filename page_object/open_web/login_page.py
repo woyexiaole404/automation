@@ -1,6 +1,19 @@
 from base.base import BasePage
+from base.logger import get_logger
 from config.config_loader import get_web_base_url
 from selenium.webdriver.common.by import By
+
+
+logger = get_logger(__name__)
+
+
+def _mask_account(account):
+    if not account:
+        return "<empty>"
+    if "@" not in account:
+        return f"{account[:1]}***"
+    name, domain = account.split("@", 1)
+    return f"{name[:1]}***@{domain}"
 
 
 class OpenWebLoginPage(BasePage):
@@ -17,9 +30,12 @@ class OpenWebLoginPage(BasePage):
     )
 
     def open(self):
-        self.go_url(get_web_base_url())
+        url = get_web_base_url()
+        logger.info("Open login page: %s", url)
+        self.go_url(url)
 
     def clear_browser_state(self):
+        logger.info("Clear browser state before login")
         self.open()
         self.delete_all_cookies()
         self.execute_script("window.localStorage.clear(); window.sessionStorage.clear();")
@@ -51,8 +67,11 @@ class OpenWebLoginPage(BasePage):
 
     def login(self, email, password):
         self.clear_browser_state()
+        logger.info("Input login account: %s", _mask_account(email))
         self.input_text(self.EMAIL_INPUT, email, by=By.CSS_SELECTOR)
+        logger.info("Input login password")
         self.input_text(self.PASSWORD_INPUT, password, by=By.CSS_SELECTOR)
+        logger.info("Click login button")
         self.click_element(self.SUBMIT_BUTTON, by=By.CSS_SELECTOR, timeout=10)
 
     def has_auth_token(self):
@@ -71,7 +90,11 @@ class OpenWebLoginPage(BasePage):
         )
 
     def is_login_successful(self):
+        logger.info("Check login result")
         current_url = self.get_current_url()
         if "/auth" in current_url:
+            logger.info("Login result: failed, still on auth page")
             return False
-        return self.has_auth_token() and self.has_logged_in_element()
+        result = self.has_auth_token() and self.has_logged_in_element()
+        logger.info("Login result: %s", result)
+        return result
