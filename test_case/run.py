@@ -20,6 +20,7 @@ from base.dependency_manager import DependencyAwareSuite, DependencyManager
 from base.project_path import report_path
 from base.test_metadata import get_metadata_from_test
 from base.test_suite_manager import TestSuiteManager
+from base.test_tag_manager import TestTagManager
 
 
 def _project_test_dir(project):
@@ -73,9 +74,10 @@ def _suite_modules(project, suite):
     return TestSuiteManager().validate_suite(suite, available_modules)
 
 
-def _discover_test_files(project=DEFAULT_PROJECT, module=None, suite=None):
+def _discover_test_files(project=DEFAULT_PROJECT, module=None, suite=None, tag=None):
     _validate_module(project, module)
     suite_modules = _suite_modules(project, suite)
+    tag_modules = _tag_modules(project, tag)
     project_test_dir = _project_test_dir(project)
     pattern = _test_pattern(module)
     discovered_files = {
@@ -89,6 +91,9 @@ def _discover_test_files(project=DEFAULT_PROJECT, module=None, suite=None):
 
     if suite_modules is not None:
         return [discovered_files[module_name] for module_name in suite_modules]
+
+    if tag_modules is not None:
+        return [discovered_files[module_name] for module_name in tag_modules]
 
     dependency_manager = DependencyManager()
     return [
@@ -115,6 +120,36 @@ def _discover_module_suites(project=DEFAULT_PROJECT, modules=None):
     return module_suites
 
 
+def _tag_modules(project, tag):
+    if tag is None:
+        return None
+
+    module_suites = _discover_module_suites(project)
+    tagged_module_suites = _filter_module_suites_by_tag(module_suites, tag)
+    if not tagged_module_suites:
+        available_tags = ", ".join(_available_tags(project)) or "none"
+        raise ValueError(
+            f"Unsupported tag '{tag}' for project '{project}'. "
+            f"Available tags: {available_tags}."
+        )
+    return [module_name for module_name, _ in tagged_module_suites]
+
+
+def _filter_module_suites_by_tag(module_suites, tag):
+    tag_manager = TestTagManager()
+    tagged_module_suites = []
+    for module_name, module_suite in module_suites:
+        tagged_suite = tag_manager.filter_suite(module_suite, tag)
+        if tagged_suite.countTestCases() > 0:
+            tagged_module_suites.append((module_name, tagged_suite))
+    return tagged_module_suites
+
+
+def _available_tags(project=DEFAULT_PROJECT):
+    module_suites = [suite for _, suite in _discover_module_suites(project)]
+    return TestTagManager().list_tags(module_suites)
+
+
 def _build_dependency_aware_suite(project=DEFAULT_PROJECT, modules=None):
     return DependencyAwareSuite(_discover_module_suites(project, modules=modules))
 
@@ -128,9 +163,22 @@ def _build_standard_suite(project=DEFAULT_PROJECT, module=None):
     )
 
 
-def _build_suite(project=DEFAULT_PROJECT, module=None, suite=None):
+def _build_tagged_suite(project=DEFAULT_PROJECT, tag=None):
+    module_suites = _filter_module_suites_by_tag(_discover_module_suites(project), tag)
+    if not module_suites:
+        available_tags = ", ".join(_available_tags(project)) or "none"
+        raise ValueError(
+            f"Unsupported tag '{tag}' for project '{project}'. "
+            f"Available tags: {available_tags}."
+        )
+    return DependencyAwareSuite(module_suites)
+
+
+def _build_suite(project=DEFAULT_PROJECT, module=None, suite=None, tag=None):
     _validate_module(project, module)
     suite_modules = _suite_modules(project, suite)
+    if tag is not None:
+        return _build_tagged_suite(project, tag)
     if module is None:
         return _build_dependency_aware_suite(project, modules=suite_modules)
     return _build_standard_suite(project, module)
@@ -154,6 +202,10 @@ def _parse_args():
         help="Test suite name, for example: smoke, regression, or nightly.",
     )
     parser.add_argument(
+        "--tag",
+        help="Run tests by metadata tag, for example: smoke, regression, ui, login, chat, or p0.",
+    )
+    parser.add_argument(
         "--list",
         action="store_true",
         help="List runnable modules without executing tests or generating a report.",
@@ -164,8 +216,9 @@ def _parse_args():
         help="Show test metadata when used with --list.",
     )
     args = parser.parse_args()
-    if args.module and args.suite:
-        parser.error("--module and --suite cannot be used together.")
+    selected_filters = [bool(args.module), bool(args.suite), bool(args.tag)]
+    if sum(selected_filters) > 1:
+        parser.error("--module, --suite, and --tag cannot be used together.")
     return args
 
 
@@ -175,8 +228,8 @@ def _configure_beautiful_report_template():
         BeautifulReport.config_tmp_path = str(template_path)
 
 
-def run(project=DEFAULT_PROJECT, module=None, suite=None):
-    discovered_files = _discover_test_files(project, module, suite)
+def run(project=DEFAULT_PROJECT, module=None, suite=None, tag=None):
+    discovered_files = _discover_test_files(project, module, suite, tag)
 
     print("Discovered test files:")
     for file_name in discovered_files:
@@ -189,7 +242,7 @@ def run(project=DEFAULT_PROJECT, module=None, suite=None):
         raise RuntimeError(f"No {pattern} files found under {project_test_dir}.")
 
     _configure_beautiful_report_template()
-    suite_tests = _build_suite(project, module, suite)
+    suite_tests = _build_suite(project, module, suite, tag)
     report_output_dir = report_path()
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"automation_{now}"
@@ -224,6 +277,11 @@ def list_modules(project=DEFAULT_PROJECT):
     for suite_name, suite_info in TestSuiteManager().list_suites().items():
         modules = ", ".join(suite_info["modules"])
         print(f"  - {suite_name}: {modules}")
+
+    print()
+    print("Available tags:")
+    for tag in _available_tags(project):
+        print(f"  - {tag}")
 
     return 0
 
@@ -263,6 +321,10 @@ def list_metadata_details(project=DEFAULT_PROJECT):
         print(f"        description: {suite_info['description']}")
         print(f"        modules: {', '.join(suite_info['modules'])}")
         print()
+
+    print("Tags")
+    for tag in _available_tags(project):
+        print(f"    {tag}")
     return 0
 
 
@@ -273,7 +335,9 @@ if __name__ == "__main__":
             if args.detail:
                 sys.exit(list_metadata_details(project=args.project))
             sys.exit(list_modules(project=args.project))
-        sys.exit(run(project=args.project, module=args.module, suite=args.suite))
+        sys.exit(
+            run(project=args.project, module=args.module, suite=args.suite, tag=args.tag)
+        )
     except (RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         sys.exit(1)

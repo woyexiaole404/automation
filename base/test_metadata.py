@@ -15,14 +15,28 @@ class TestMetadata:
     tags: tuple = field(default_factory=tuple)
 
     def to_dict(self):
+        tags = _merge_tags(self.tags, (self.module, self.priority))
         return {
             "module": self.module,
             "priority": self.priority,
             "owner": self.owner,
             "feature": self.feature,
             "description": self.description,
-            "tags": list(self.tags),
+            "tags": tags,
         }
+
+
+def _merge_tags(*tag_groups):
+    merged_tags = []
+    seen_tags = set()
+    for tag_group in tag_groups:
+        for tag in tag_group:
+            normalized_tag = str(tag).lower()
+            if normalized_tag in seen_tags:
+                continue
+            merged_tags.append(str(tag))
+            seen_tags.add(normalized_tag)
+    return merged_tags
 
 
 def metadata(
