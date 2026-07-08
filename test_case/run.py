@@ -39,7 +39,31 @@ def _test_pattern(module):
     return f"test_{module}.py"
 
 
+def _available_modules(project=DEFAULT_PROJECT):
+    project_test_dir = _project_test_dir(project)
+    return {
+        path.stem.removeprefix("test_"): path.relative_to(TEST_CASE_DIR).as_posix()
+        for path in sorted(project_test_dir.glob("test_*.py"))
+        if path.is_file()
+    }
+
+
+def _validate_module(project, module):
+    if module is None:
+        return
+
+    _test_pattern(module)
+    available_modules = _available_modules(project)
+    if module not in available_modules:
+        supported_modules = ", ".join(sorted(available_modules)) or "none"
+        raise ValueError(
+            f"Unsupported module '{module}' for project '{project}'. "
+            f"Available modules: {supported_modules}."
+        )
+
+
 def _discover_test_files(project=DEFAULT_PROJECT, module=None):
+    _validate_module(project, module)
     project_test_dir = _project_test_dir(project)
     pattern = _test_pattern(module)
     return sorted(
@@ -49,6 +73,7 @@ def _discover_test_files(project=DEFAULT_PROJECT, module=None):
 
 
 def _build_suite(project=DEFAULT_PROJECT, module=None):
+    _validate_module(project, module)
     project_test_dir = _project_test_dir(project)
     return unittest.defaultTestLoader.discover(
         start_dir=str(project_test_dir),
@@ -68,6 +93,11 @@ def _parse_args():
     parser.add_argument(
         "--module",
         help="Module name without the test_ prefix or .py suffix, for example: login.",
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List runnable modules without executing tests or generating a report.",
     )
     return parser.parse_args()
 
@@ -112,6 +142,24 @@ def run(project=DEFAULT_PROJECT, module=None):
     return 1 if report.failure_count or report.error_count else 0
 
 
+def list_modules(project=DEFAULT_PROJECT):
+    available_modules = _available_modules(project)
+    print(f"Available modules for {project}:")
+    if not available_modules:
+        print("  - none")
+        return 0
+
+    for module, file_name in sorted(available_modules.items()):
+        print(f"  - {module}: {file_name}")
+    return 0
+
+
 if __name__ == "__main__":
     args = _parse_args()
-    sys.exit(run(project=args.project, module=args.module))
+    try:
+        if args.list:
+            sys.exit(list_modules(project=args.project))
+        sys.exit(run(project=args.project, module=args.module))
+    except (RuntimeError, ValueError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        sys.exit(1)
