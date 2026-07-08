@@ -1,6 +1,7 @@
 name: Open Web UI Tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - develop
