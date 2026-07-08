@@ -56,7 +56,7 @@ class ReportManager:
 
     def build_email_subject(self, summary=None):
         data = summary or self.parse_summary()
-        return f"【Open Web】自动化测试报告 - {data['status']}"
+        return f"【Open Web】自动化测试报告 - {self._get_email_status_text(data)}"
 
     def build_email_body(self, summary=None, attachments=None):
         data = summary or self.parse_summary()
@@ -68,7 +68,7 @@ class ReportManager:
             "",
             "执行状态：",
             "",
-            f"{'✅' if data['status'] == 'SUCCESS' else '❌'} {data['status']}",
+            f"{'✅' if data['status'] == 'SUCCESS' else '❌'} {self._get_email_status_text(data)}",
             "",
             "执行时间：",
             "",
@@ -76,30 +76,27 @@ class ReportManager:
             "",
             "测试统计：",
             "",
-            f"Total：{data['total']}",
-            f"Passed：{data['passed']}",
-            f"Failed：{data['failed']}",
-            f"Skipped：{data['skipped']}",
-            f"Error：{data['error']}",
+            f"总用例：{data['total']}",
+            f"通过：{data['passed']}",
+            f"失败：{data['failed']}",
+            f"跳过：{data['skipped']}",
+            f"异常：{data['error']}",
             "",
             f"Runner：{os.environ.get('RUNNER_NAME', '-')}",
-            f"Branch：{self._get_branch()}",
-            f"Commit：{self._get_short_sha()}",
+            f"分支：{self._get_branch()}",
+            f"提交版本：{self._get_short_sha()}",
             f"Workflow：{os.environ.get('GITHUB_WORKFLOW', '-')}",
             f"GitHub Actions：{self.build_github_run_url() or '-'}",
             "",
             "附件：",
             "",
-            *[Path(attachment).name for attachment in attachment_names],
+            *self._format_email_attachments(attachment_names),
             "",
             "说明：",
             "",
-            "由于邮件客户端限制，",
-            "HTML 报告可能无法完整显示。",
-            "请优先：",
-            "",
-            "1. 下载附件查看。",
-            "2. 或到 GitHub Artifacts 下载。",
+            "1. PDF 为推荐阅读版本。",
+            "2. HTML 为 BeautifulReport 原始报告。",
+            "3. 如 HTML 在邮件客户端无法正常显示，请优先查看 PDF，或到 GitHub Actions Artifacts 下载完整报告。",
             "",
             self.SEPARATOR,
         ]
@@ -392,6 +389,34 @@ class ReportManager:
         if summary["failed"] > 0 or summary["error"] > 0:
             return "FAILED"
         return "SUCCESS"
+
+    def _get_email_status_text(self, summary):
+        if summary["status"] == "SUCCESS":
+            return "测试通过"
+        return "测试失败"
+
+    def _format_email_attachments(self, attachments):
+        lines = []
+        for index, attachment in enumerate(attachments, start=1):
+            attachment_path = Path(attachment)
+            label = ""
+            if attachment_path.suffix.lower() == ".pdf":
+                label = "（推荐查看）"
+            elif attachment_path.suffix.lower() == ".html":
+                label = "（原始报告）"
+
+            lines.extend(
+                [
+                    f"{index}.",
+                    "",
+                    f"{attachment_path.name}{label}",
+                    "",
+                ]
+            )
+
+        if lines:
+            lines.pop()
+        return lines
 
     def _get_branch(self):
         ref_name = os.environ.get("GITHUB_REF_NAME")
