@@ -10,6 +10,10 @@ on:
       - develop
       - main
 
+concurrency:
+  group: automation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   open-web-ui-tests:
     runs-on:
