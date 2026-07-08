@@ -12,7 +12,11 @@ on:
 
 jobs:
   open-web-ui-tests:
-    runs-on: ubuntu-latest
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - open-web
 
     env:
       WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
