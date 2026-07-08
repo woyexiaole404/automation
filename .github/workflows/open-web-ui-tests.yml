@@ -28,8 +28,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
+      - name: Check local Google Chrome
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+          else
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --version
+          fi
 
       - name: Ensure artifact directories exist
         run: |
