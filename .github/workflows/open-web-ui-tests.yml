@@ -1,0 +1,100 @@
+name: Open Web UI Tests
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: automation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  open-web-ui-tests:
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - open-web
+
+    env:
+      WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
+      DEFAULT_ACCOUNT_EMAIL: ${{ secrets.DEFAULT_ACCOUNT_EMAIL }}
+      DEFAULT_ACCOUNT_PASSWORD: ${{ secrets.DEFAULT_ACCOUNT_PASSWORD }}
+      DEFAULT_ACCOUNT_INVALID_PASSWORD: ${{ secrets.DEFAULT_ACCOUNT_INVALID_PASSWORD }}
+      MAIL_HOST: ${{ secrets.MAIL_HOST }}
+      MAIL_PORT: ${{ secrets.MAIL_PORT }}
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+      MAIL_FROM: ${{ secrets.MAIL_FROM }}
+      MAIL_TO: ${{ secrets.MAIL_TO }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check local environment
+        run: |
+          python3 --version
+          which python3
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --version
+          curl -I "$WEB_BASE_URL"
+
+      - name: Ensure artifact directories exist
+        run: |
+          mkdir -p report
+          mkdir -p img
+          mkdir -p logs
+
+      - name: Run Open Web UI tests in virtualenv
+        id: open_web_tests
+        continue-on-error: true
+        run: |
+          python3 -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m compileall .
+          python test_case/run.py
+        # TODO: Start or connect the Open Web application before this step.
+        # The current UI tests expect WEB_BASE_URL, defaulting to
+        # http://localhost:3000/auth, to be reachable from the runner.
+        # Do not commit config/config.yaml; provide sensitive values via
+        # GitHub Secrets or environment variables.
+
+      - name: Send BeautifulReport email
+        if: always()
+        run: |
+          source .venv/bin/activate
+          if [ "${{ steps.open_web_tests.outcome }}" = "success" ]; then
+            export CI_TEST_STATUS=success
+          else
+            export CI_TEST_STATUS=failure
+          fi
+          python scripts/send_report_email.py
+
+      - name: Fail job if Open Web UI tests failed
+        if: steps.open_web_tests.outcome != 'success'
+        run: exit 1
+
+      - name: Upload BeautifulReport artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-web-report
+          path: report/
+          if-no-files-found: warn
+
+      - name: Upload screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-web-screenshots
+          path: img/
+          if-no-files-found: ignore
+
+      - name: Upload log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-web-logs
+          path: logs/
+          if-no-files-found: ignore
