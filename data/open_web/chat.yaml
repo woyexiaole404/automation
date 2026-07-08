@@ -1,0 +1,9 @@
+chat_input:
+  expected_visible: true
+
+message:
+  text: "Open Web automated input draft"
+  expected_empty: ""
+
+new_chat:
+  expected_clickable: true

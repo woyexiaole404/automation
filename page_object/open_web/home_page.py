@@ -50,6 +50,7 @@ class OpenWebHomePage(BasePage):
     def click_new_chat(self):
         logger.info("Click new chat")
         self.click_element(self.NEW_CHAT_LINK, by=By.CSS_SELECTOR, timeout=5)
+        return True
 
     def open_user_menu(self):
         logger.info("Open user menu from home page")
