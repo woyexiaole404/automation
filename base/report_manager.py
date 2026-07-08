@@ -289,12 +289,83 @@ class ReportManager:
     def _expand_detail_rows_for_pdf(self, page):
         page.evaluate(
             """() => {
-                const buttons = Array.from(document.querySelectorAll('button[buttonIndex]'));
-                buttons.forEach((button) => {
-                    if (button.textContent.trim() === '展开') {
-                        button.click();
+                if (!window.resultData || !Array.isArray(window.resultData.testResult)) {
+                    const buttons = Array.from(document.querySelectorAll('button[buttonIndex]'));
+                    buttons.forEach((button) => {
+                        if (button.textContent.trim() === '展开') {
+                            button.click();
+                        }
+                    });
+                    return;
+                }
+
+                const detailBody = document.querySelector('#detailBody');
+                if (!detailBody) {
+                    return;
+                }
+
+                const escapeHtml = (value) => String(value ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+
+                const statusCell = (status) => {
+                    if (status === '成功') {
+                        return "<td><span class='text-navy'>成功</span></td>";
+                    }
+                    if (status === '失败') {
+                        return "<td><span class='text-danger'>失败</span></td>";
+                    }
+                    if (status === '跳过') {
+                        return "<td><span class='text-warning'>跳过</span></td>";
+                    }
+                    return `<td><span>${escapeHtml(status)}</span></td>`;
+                };
+
+                detailBody.innerHTML = '';
+                window.resultData.testResult.forEach((testCase, index) => {
+                    const row = document.createElement('tr');
+                    row.setAttribute('style', 'font-family: Consolas');
+                    row.innerHTML = [
+                        `<td>${index + 1}</td>`,
+                        `<td>${escapeHtml(testCase.className)}</td>`,
+                        `<td>${escapeHtml(testCase.methodName)}</td>`,
+                        `<td>${escapeHtml(testCase.description)}</td>`,
+                        `<td>${escapeHtml(testCase.spendTime)}</td>`,
+                        statusCell(testCase.status),
+                        "<td><span class='btn btn-danger btn-xs' style='margin-bottom: 0px'>已展开</span></td>",
+                    ].join('');
+                    detailBody.appendChild(row);
+
+                    const logs = Array.isArray(testCase.log) ? testCase.log : [];
+                    if (logs.length > 0) {
+                        const detailRow = document.createElement('tr');
+                        const detailCell = document.createElement('td');
+                        detailCell.colSpan = row.children.length;
+                        detailCell.innerHTML = `<div style='font-family: Consolas;font-size:12px'>${
+                            logs.map((log) => `<p>${log}</p>`).join('')
+                        }</div>`;
+                        detailRow.appendChild(detailCell);
+                        detailBody.appendChild(detailRow);
                     }
                 });
+
+                const testAll = window.resultData.testResult.length;
+                const testPass = window.resultData.testResult.filter((item) => item.status === '成功').length;
+                const testFail = window.resultData.testResult.filter((item) => item.status === '失败').length;
+                const testSkip = window.resultData.testResult.filter((item) => item.status === '跳过').length;
+                const setText = (selector, text) => {
+                    const element = document.querySelector(selector);
+                    if (element) {
+                        element.textContent = text;
+                    }
+                };
+                setText('#filterAll', testAll);
+                setText('#filterOk', testPass);
+                setText('#filterFail', testFail);
+                setText('#filterSkip', testSkip);
             }"""
         )
 
