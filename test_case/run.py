@@ -19,6 +19,7 @@ from BeautifulReport import BeautifulReport
 from base.dependency_manager import DependencyAwareSuite, DependencyManager
 from base.project_path import report_path
 from base.test_metadata import get_metadata_from_test
+from base.test_suite_manager import TestSuiteManager
 
 
 def _project_test_dir(project):
@@ -64,8 +65,17 @@ def _validate_module(project, module):
         )
 
 
-def _discover_test_files(project=DEFAULT_PROJECT, module=None):
+def _suite_modules(project, suite):
+    if suite is None:
+        return None
+
+    available_modules = _available_modules(project)
+    return TestSuiteManager().validate_suite(suite, available_modules)
+
+
+def _discover_test_files(project=DEFAULT_PROJECT, module=None, suite=None):
     _validate_module(project, module)
+    suite_modules = _suite_modules(project, suite)
     project_test_dir = _project_test_dir(project)
     pattern = _test_pattern(module)
     discovered_files = {
@@ -77,6 +87,9 @@ def _discover_test_files(project=DEFAULT_PROJECT, module=None):
     if module is not None:
         return sorted(discovered_files.values())
 
+    if suite_modules is not None:
+        return [discovered_files[module_name] for module_name in suite_modules]
+
     dependency_manager = DependencyManager()
     return [
         discovered_files[module_name]
@@ -84,13 +97,14 @@ def _discover_test_files(project=DEFAULT_PROJECT, module=None):
     ]
 
 
-def _discover_module_suites(project=DEFAULT_PROJECT):
+def _discover_module_suites(project=DEFAULT_PROJECT, modules=None):
     available_modules = _available_modules(project)
     dependency_manager = DependencyManager()
     project_test_dir = _project_test_dir(project)
     module_suites = []
+    module_names = modules or dependency_manager.order_modules(available_modules)
 
-    for module_name in dependency_manager.order_modules(available_modules):
+    for module_name in dependency_manager.order_modules(module_names):
         suite = unittest.defaultTestLoader.discover(
             start_dir=str(project_test_dir),
             pattern=_test_pattern(module_name),
@@ -101,8 +115,8 @@ def _discover_module_suites(project=DEFAULT_PROJECT):
     return module_suites
 
 
-def _build_dependency_aware_suite(project=DEFAULT_PROJECT):
-    return DependencyAwareSuite(_discover_module_suites(project))
+def _build_dependency_aware_suite(project=DEFAULT_PROJECT, modules=None):
+    return DependencyAwareSuite(_discover_module_suites(project, modules=modules))
 
 
 def _build_standard_suite(project=DEFAULT_PROJECT, module=None):
@@ -114,10 +128,11 @@ def _build_standard_suite(project=DEFAULT_PROJECT, module=None):
     )
 
 
-def _build_suite(project=DEFAULT_PROJECT, module=None):
+def _build_suite(project=DEFAULT_PROJECT, module=None, suite=None):
     _validate_module(project, module)
+    suite_modules = _suite_modules(project, suite)
     if module is None:
-        return _build_dependency_aware_suite(project)
+        return _build_dependency_aware_suite(project, modules=suite_modules)
     return _build_standard_suite(project, module)
 
 
@@ -134,6 +149,11 @@ def _parse_args():
         help="Module name without the test_ prefix or .py suffix, for example: login.",
     )
     parser.add_argument(
+        "--suite",
+        choices=sorted(TestSuiteManager().list_suites()),
+        help="Test suite name, for example: smoke, regression, or nightly.",
+    )
+    parser.add_argument(
         "--list",
         action="store_true",
         help="List runnable modules without executing tests or generating a report.",
@@ -143,7 +163,10 @@ def _parse_args():
         action="store_true",
         help="Show test metadata when used with --list.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.module and args.suite:
+        parser.error("--module and --suite cannot be used together.")
+    return args
 
 
 def _configure_beautiful_report_template():
@@ -152,8 +175,8 @@ def _configure_beautiful_report_template():
         BeautifulReport.config_tmp_path = str(template_path)
 
 
-def run(project=DEFAULT_PROJECT, module=None):
-    discovered_files = _discover_test_files(project, module)
+def run(project=DEFAULT_PROJECT, module=None, suite=None):
+    discovered_files = _discover_test_files(project, module, suite)
 
     print("Discovered test files:")
     for file_name in discovered_files:
@@ -166,7 +189,7 @@ def run(project=DEFAULT_PROJECT, module=None):
         raise RuntimeError(f"No {pattern} files found under {project_test_dir}.")
 
     _configure_beautiful_report_template()
-    suite_tests = _build_suite(project, module)
+    suite_tests = _build_suite(project, module, suite)
     report_output_dir = report_path()
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"automation_{now}"
@@ -192,10 +215,16 @@ def list_modules(project=DEFAULT_PROJECT):
     print(f"Available modules for {project}:")
     if not available_modules:
         print("  - none")
-        return 0
+    else:
+        for module, file_name in sorted(available_modules.items()):
+            print(f"  - {module}: {file_name}")
 
-    for module, file_name in sorted(available_modules.items()):
-        print(f"  - {module}: {file_name}")
+    print()
+    print("Available suites:")
+    for suite_name, suite_info in TestSuiteManager().list_suites().items():
+        modules = ", ".join(suite_info["modules"])
+        print(f"  - {suite_name}: {modules}")
+
     return 0
 
 
@@ -227,6 +256,13 @@ def list_metadata_details(project=DEFAULT_PROJECT):
             print(f"        feature: {metadata.get('feature', '-')}")
             print(f"        description: {metadata.get('description', '-')}")
         print()
+
+    print("Suites")
+    for suite_name, suite_info in TestSuiteManager().list_suites().items():
+        print(f"    {suite_name}")
+        print(f"        description: {suite_info['description']}")
+        print(f"        modules: {', '.join(suite_info['modules'])}")
+        print()
     return 0
 
 
@@ -237,7 +273,7 @@ if __name__ == "__main__":
             if args.detail:
                 sys.exit(list_metadata_details(project=args.project))
             sys.exit(list_modules(project=args.project))
-        sys.exit(run(project=args.project, module=args.module))
+        sys.exit(run(project=args.project, module=args.module, suite=args.suite))
     except (RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         sys.exit(1)

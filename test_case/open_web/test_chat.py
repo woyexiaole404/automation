@@ -7,12 +7,24 @@ from base.driver_manager import DriverManager
 from base.logger import get_logger
 from base.test_metadata import metadata
 from config.config_loader import get_account
+from config.config_loader import get_web_base_url
 from page_object.open_web.chat_page import OpenWebChatPage
 from page_object.open_web.home_page import OpenWebHomePage
 from page_object.open_web.login_page import OpenWebLoginPage
 
 
 logger = get_logger(__name__)
+
+
+ERROR_TEXT_KEYWORDS = (
+    "api rate limit exceeded",
+    "internal server error",
+    "bad gateway",
+    "service unavailable",
+    "gateway timeout",
+    "application error",
+    "network error",
+)
 
 
 class TestOpenWebChat(unittest.TestCase):
@@ -29,6 +41,8 @@ class TestOpenWebChat(unittest.TestCase):
         cls.home_page = OpenWebHomePage(cls.driver)
         cls.chat_page = OpenWebChatPage(cls.driver)
         cls.login_page.login(cls.account["email"], cls.account["password"])
+        cls._wait_login_successful()
+        cls.driver.get(cls._home_url())
         cls._wait_chat_ready()
 
     @classmethod
@@ -41,19 +55,83 @@ class TestOpenWebChat(unittest.TestCase):
         self._reset_chat_state()
 
     @classmethod
-    def _wait_chat_ready(cls, timeout=12):
+    def _wait_login_successful(cls, timeout=30):
         deadline = time.time() + timeout
         while time.time() < deadline:
+            body_text = cls._get_body_text()
+            body_text_lower = body_text.lower()
+            if "api rate limit exceeded" in body_text_lower:
+                logger.error(
+                    "API rate limit exceeded during chat setup login, current_url=%s",
+                    cls.driver.current_url,
+                )
+                raise AssertionError("API rate limit exceeded during chat setup")
+
+            if cls.login_page.is_login_successful():
+                return
+
+            time.sleep(0.5)
+
+        current_url = cls.driver.current_url
+        body_text = cls._get_body_text()
+        body_preview = body_text[:300]
+        if "/auth" in current_url:
+            raise AssertionError(
+                "Open Web chat setup login failed, still on auth page. "
+                f"current_url={current_url}, "
+                f"rate_limit_detected={'api rate limit exceeded' in body_text.lower()}, "
+                f"body_preview={body_preview!r}"
+            )
+        raise AssertionError(
+            "Open Web chat setup login failed. "
+            f"current_url={current_url}, "
+            f"rate_limit_detected={'api rate limit exceeded' in body_text.lower()}, "
+            f"body_preview={body_preview!r}"
+        )
+
+    @classmethod
+    def _wait_chat_ready(cls, timeout=30):
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            current_url = cls.driver.current_url
+            body_text = cls._get_body_text()
+            body_text_lower = body_text.lower()
+            has_rate_limit = "api rate limit exceeded" in body_text_lower
+            if has_rate_limit:
+                logger.error(
+                    "API rate limit exceeded during chat setup, current_url=%s",
+                    current_url,
+                )
+                raise AssertionError("API rate limit exceeded during chat setup")
+
+            matched_error = cls._get_visible_error_text(body_text_lower)
+            if matched_error:
+                logger.warning(
+                    "Potential Open Web page error during chat setup, current_url=%s, error=%s",
+                    current_url,
+                    matched_error,
+                )
+
             if cls.chat_page.is_chat_input_visible():
                 return
             time.sleep(0.5)
-        raise AssertionError("Open Web chat input did not load after login")
+
+        current_url = cls.driver.current_url
+        body_text = cls._get_body_text()
+        has_rate_limit = "api rate limit exceeded" in body_text.lower()
+        body_preview = body_text[:300]
+        raise AssertionError(
+            "Open Web chat input did not load after login. "
+            f"current_url={current_url}, "
+            f"rate_limit_detected={has_rate_limit}, "
+            f"body_preview={body_preview!r}"
+        )
 
     def _reset_chat_state(self):
         if self._has_rate_limit_message():
             logger.warning("API rate limit exceeded is visible before test starts")
             self.skipTest("API rate limit exceeded")
-        self.driver.get("http://localhost:3000/")
+        self.driver.get(self._home_url())
         self._wait_chat_ready()
         if self._has_rate_limit_message():
             logger.warning("API rate limit exceeded after returning home")
@@ -71,6 +149,28 @@ class TestOpenWebChat(unittest.TestCase):
     def _has_rate_limit_message(self):
         body_text = self.driver.find_element("tag name", "body").text.lower()
         return "api rate limit exceeded" in body_text
+
+    @classmethod
+    def _home_url(cls):
+        base_url = get_web_base_url().rstrip("/")
+        if base_url.endswith("/auth"):
+            base_url = base_url[: -len("/auth")]
+        return base_url.rstrip("/") + "/"
+
+    @classmethod
+    def _get_body_text(cls):
+        try:
+            return cls.driver.find_element("tag name", "body").text
+        except Exception:
+            logger.exception("Failed to read Open Web page body text")
+            return ""
+
+    @classmethod
+    def _get_visible_error_text(cls, body_text_lower):
+        for keyword in ERROR_TEXT_KEYWORDS:
+            if keyword in body_text_lower:
+                return keyword
+        return ""
 
     def _capture_screenshot_on_failure(self):
         if not self._has_failure_or_error():
