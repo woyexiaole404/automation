@@ -263,6 +263,7 @@ class ReportTestResult(unittest.TestResult):
         logs = []
         output = self.complete_output()
         logs.append(output)
+        logs.extend(self._build_failure_screenshot_logs(test))
         logs.extend(self.error_or_failure_text(err))
         self.error_count += 1
         self.add_test_type('错误', logs)
@@ -285,6 +286,7 @@ class ReportTestResult(unittest.TestResult):
         logs = []
         output = self.complete_output()
         logs.append(output)
+        logs.extend(self._build_failure_screenshot_logs(test))
         logs.extend(self.error_or_failure_text(err))
         self.failure_count += 1
         self.add_test_type('失败', logs)
@@ -296,6 +298,37 @@ class ReportTestResult(unittest.TestResult):
             sys.stderr.write('F')
         
         self._mirrorOutput = True
+
+    def _build_failure_screenshot_logs(self, test):
+        driver = self._get_driver_from_test(test)
+        if driver is None:
+            return ['失败截图：未获取到浏览器 driver，无法截图。']
+
+        try:
+            from base.base import take_screenshot
+
+            screenshot_path = take_screenshot(driver, name=test.id())
+            with open(screenshot_path, 'rb') as screenshot_file:
+                data = base64.b64encode(screenshot_file.read()).decode()
+        except Exception as error:
+            return [f'失败截图：截图失败，原因：{error}']
+
+        return [
+            f'失败截图：{screenshot_path}',
+            HTML_IMG_TEMPLATE.format(data, data),
+        ]
+
+    @staticmethod
+    def _get_driver_from_test(test):
+        driver = getattr(test, 'driver', None)
+        if driver is not None:
+            return driver
+
+        test_class = getattr(test, '__class__', None)
+        if test_class is not None:
+            return getattr(test_class, 'driver', None)
+
+        return None
     
     def addSkip(self, test, reason) -> None:
         """

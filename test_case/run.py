@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from BeautifulReport import BeautifulReport
+from base.dependency_manager import DependencyAwareSuite, DependencyManager
 from base.project_path import report_path
 
 
@@ -66,20 +67,57 @@ def _discover_test_files(project=DEFAULT_PROJECT, module=None):
     _validate_module(project, module)
     project_test_dir = _project_test_dir(project)
     pattern = _test_pattern(module)
-    return sorted(
-        path.relative_to(TEST_CASE_DIR).as_posix()
+    discovered_files = {
+        path.stem.removeprefix("test_"): path.relative_to(TEST_CASE_DIR).as_posix()
         for path in project_test_dir.rglob(pattern)
-    )
+        if path.is_file()
+    }
+
+    if module is not None:
+        return sorted(discovered_files.values())
+
+    dependency_manager = DependencyManager()
+    return [
+        discovered_files[module_name]
+        for module_name in dependency_manager.order_modules(discovered_files)
+    ]
 
 
-def _build_suite(project=DEFAULT_PROJECT, module=None):
-    _validate_module(project, module)
+def _discover_module_suites(project=DEFAULT_PROJECT):
+    available_modules = _available_modules(project)
+    dependency_manager = DependencyManager()
+    project_test_dir = _project_test_dir(project)
+    module_suites = []
+
+    for module_name in dependency_manager.order_modules(available_modules):
+        suite = unittest.defaultTestLoader.discover(
+            start_dir=str(project_test_dir),
+            pattern=_test_pattern(module_name),
+            top_level_dir=str(TEST_CASE_DIR),
+        )
+        module_suites.append((module_name, suite))
+
+    return module_suites
+
+
+def _build_dependency_aware_suite(project=DEFAULT_PROJECT):
+    return DependencyAwareSuite(_discover_module_suites(project))
+
+
+def _build_standard_suite(project=DEFAULT_PROJECT, module=None):
     project_test_dir = _project_test_dir(project)
     return unittest.defaultTestLoader.discover(
         start_dir=str(project_test_dir),
         pattern=_test_pattern(module),
         top_level_dir=str(TEST_CASE_DIR),
     )
+
+
+def _build_suite(project=DEFAULT_PROJECT, module=None):
+    _validate_module(project, module)
+    if module is None:
+        return _build_dependency_aware_suite(project)
+    return _build_standard_suite(project, module)
 
 
 def _parse_args():
@@ -138,6 +176,7 @@ def run(project=DEFAULT_PROJECT, module=None):
     print(f"  passed: {report.success_count}")
     print(f"  failed: {report.failure_count}")
     print(f"  error: {report.error_count}")
+    print(f"  skipped: {report.skipped}")
     print(f"  report: {report_file}")
     return 1 if report.failure_count or report.error_count else 0
 
