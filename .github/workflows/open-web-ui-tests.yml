@@ -23,6 +23,12 @@ jobs:
       DEFAULT_ACCOUNT_EMAIL: ${{ secrets.DEFAULT_ACCOUNT_EMAIL }}
       DEFAULT_ACCOUNT_PASSWORD: ${{ secrets.DEFAULT_ACCOUNT_PASSWORD }}
       DEFAULT_ACCOUNT_INVALID_PASSWORD: ${{ secrets.DEFAULT_ACCOUNT_INVALID_PASSWORD }}
+      MAIL_HOST: ${{ secrets.MAIL_HOST }}
+      MAIL_PORT: ${{ secrets.MAIL_PORT }}
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+      MAIL_FROM: ${{ secrets.MAIL_FROM }}
+      MAIL_TO: ${{ secrets.MAIL_TO }}
 
     steps:
       - name: Checkout repository
@@ -42,6 +48,8 @@ jobs:
           mkdir -p logs
 
       - name: Run Open Web UI tests in virtualenv
+        id: open_web_tests
+        continue-on-error: true
         run: |
           python3 -m venv .venv
           source .venv/bin/activate
@@ -54,6 +62,21 @@ jobs:
         # http://localhost:3000/auth, to be reachable from the runner.
         # Do not commit config/config.yaml; provide sensitive values via
         # GitHub Secrets or environment variables.
+
+      - name: Send BeautifulReport email
+        if: always()
+        run: |
+          source .venv/bin/activate
+          if [ "${{ steps.open_web_tests.outcome }}" = "success" ]; then
+            export CI_TEST_STATUS=success
+          else
+            export CI_TEST_STATUS=failure
+          fi
+          python scripts/send_report_email.py
+
+      - name: Fail job if Open Web UI tests failed
+        if: steps.open_web_tests.outcome != 'success'
+        run: exit 1
 
       - name: Upload BeautifulReport artifact
         if: always()
