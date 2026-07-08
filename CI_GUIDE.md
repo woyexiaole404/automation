@@ -36,18 +36,56 @@ Runner 需要保持运行状态。否则 GitHub Actions 会一直等待 self-hos
 
 ## CI 触发条件
 
-Open Web UI Tests 会在以下场景触发：
+当前开发阶段，Open Web UI Tests 只支持手动触发。
+
+workflow 使用：
+
+```yaml
+on:
+  workflow_dispatch:
+```
+
+当前不会在以下场景自动执行：
 
 - push 到 `develop`
 - push 到 `main`
-- pull request 目标分支为 `develop`
-- pull request 目标分支为 `main`
+- pull request
 
 workflow 文件：
 
 ```text
 .github/workflows/open-web-ui-tests.yml
 ```
+
+## 手动运行 CI
+
+在 GitHub 页面手动运行：
+
+```text
+Actions → Open Web UI Tests → Run workflow → Branch 选择 develop
+```
+
+然后点击 `Run workflow`。
+
+当前日常开发和测试分支是 `develop`。手动运行 CI 时，Branch 应选择 `develop`，这样 CI 会拉取并测试 `develop` 分支上的最新代码。
+
+## main 和 develop 分支职责
+
+GitHub Actions 的 `workflow_dispatch` 手动触发入口依赖 GitHub 对 workflow 文件的识别。为了让 GitHub Actions 页面显示 `Run workflow`，workflow 文件需要存在于仓库默认分支，通常是 `main`。
+
+因此：
+
+- `main` 分支必须存在 `.github/workflows/open-web-ui-tests.yml`。
+- `main` 只负责让 GitHub 识别 workflow，并显示手动运行入口。
+- 日常开发仍然在 `develop` 分支进行。
+- 日常测试也通过手动触发 CI，并在 `Run workflow` 时选择 `develop` 分支。
+- 不需要每次都把 `develop` 合并到 `main` 才能运行 CI。
+
+实际使用方式：
+
+1. `main` 保留 workflow 文件，用于让 GitHub Actions 识别 `Open Web UI Tests`。
+2. 开发人员在 `develop` 分支提交日常开发代码。
+3. 需要运行 CI 时，在 GitHub Actions 页面手动运行，并选择 `develop`。
 
 ## CI 执行内容
 
