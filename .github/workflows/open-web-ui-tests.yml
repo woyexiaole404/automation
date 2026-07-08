@@ -1,0 +1,79 @@
+name: Open Web UI Tests
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  open-web-ui-tests:
+    runs-on: ubuntu-latest
+
+    env:
+      WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
+      DEFAULT_ACCOUNT_EMAIL: ${{ secrets.DEFAULT_ACCOUNT_EMAIL }}
+      DEFAULT_ACCOUNT_PASSWORD: ${{ secrets.DEFAULT_ACCOUNT_PASSWORD }}
+      DEFAULT_ACCOUNT_INVALID_PASSWORD: ${{ secrets.DEFAULT_ACCOUNT_INVALID_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Set up Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r requirements.txt
+
+      - name: Ensure artifact directories exist
+        run: |
+          mkdir -p report
+          mkdir -p img
+          mkdir -p logs
+
+      - name: Compile Python files
+        run: python3 -m compileall .
+
+      - name: Run Open Web UI tests
+        run: python3 test_case/run.py
+        # TODO: Start or connect the Open Web application before this step.
+        # The current UI tests expect WEB_BASE_URL, defaulting to
+        # http://localhost:3000/auth, to be reachable from the runner.
+        # Do not commit config/config.yaml; provide sensitive values via
+        # GitHub Secrets or environment variables.
+
+      - name: Upload BeautifulReport artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-web-report
+          path: report/
+          if-no-files-found: warn
+
+      - name: Upload screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-web-screenshots
+          path: img/
+          if-no-files-found: warn
+
+      - name: Upload log artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-web-logs
+          path: logs/
+          if-no-files-found: warn
