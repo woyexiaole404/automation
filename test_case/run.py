@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from BeautifulReport import BeautifulReport
 from base.dependency_manager import DependencyAwareSuite, DependencyManager
 from base.project_path import report_path
+from base.test_metadata import get_metadata_from_test
 
 
 def _project_test_dir(project):
@@ -137,6 +138,11 @@ def _parse_args():
         action="store_true",
         help="List runnable modules without executing tests or generating a report.",
     )
+    parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Show test metadata when used with --list.",
+    )
     return parser.parse_args()
 
 
@@ -193,10 +199,43 @@ def list_modules(project=DEFAULT_PROJECT):
     return 0
 
 
+def _iter_suite_tests(suite):
+    for test in suite:
+        if isinstance(test, unittest.TestSuite):
+            yield from _iter_suite_tests(test)
+        elif test is not None:
+            yield test
+
+
+def list_metadata_details(project=DEFAULT_PROJECT):
+    available_modules = _available_modules(project)
+    dependency_manager = DependencyManager()
+    project_test_dir = _project_test_dir(project)
+
+    for module_name in dependency_manager.order_modules(available_modules):
+        print(module_name)
+        suite = unittest.defaultTestLoader.discover(
+            start_dir=str(project_test_dir),
+            pattern=_test_pattern(module_name),
+            top_level_dir=str(TEST_CASE_DIR),
+        )
+        for test in _iter_suite_tests(suite):
+            metadata = get_metadata_from_test(test) or {}
+            print(f"    {test._testMethodName}")
+            print(f"        priority: {metadata.get('priority', '-')}")
+            print(f"        tags: {', '.join(metadata.get('tags', [])) or '-'}")
+            print(f"        feature: {metadata.get('feature', '-')}")
+            print(f"        description: {metadata.get('description', '-')}")
+        print()
+    return 0
+
+
 if __name__ == "__main__":
     args = _parse_args()
     try:
         if args.list:
+            if args.detail:
+                sys.exit(list_metadata_details(project=args.project))
             sys.exit(list_modules(project=args.project))
         sys.exit(run(project=args.project, module=args.module))
     except (RuntimeError, ValueError) as error:

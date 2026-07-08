@@ -5,6 +5,7 @@ from base.base import take_screenshot
 from base.data_manager import DataManager
 from base.driver_manager import DriverManager
 from base.logger import get_logger
+from base.test_metadata import metadata
 from config.config_loader import get_account
 from page_object.open_web.chat_page import OpenWebChatPage
 from page_object.open_web.home_page import OpenWebHomePage
@@ -109,6 +110,13 @@ class TestOpenWebChat(unittest.TestCase):
         failed_tests = list(getattr(result, "failures", ())) + list(getattr(result, "errors", ()))
         return any(test.id() == test_id for test, _ in failed_tests)
 
+    @metadata(
+        module="chat",
+        priority="P1",
+        feature="Chat",
+        description="验证登录后聊天输入框可见",
+        tags=["smoke", "regression", "ui"],
+    )
     def test_01_chat_input_visible_after_login(self):
         """Open Web 登录后聊天输入框可见"""
         self.assertEqual(
@@ -116,12 +124,26 @@ class TestOpenWebChat(unittest.TestCase):
             self.chat_data["chat_input"]["expected_visible"],
         )
 
+    @metadata(
+        module="chat",
+        priority="P1",
+        feature="Chat",
+        description="验证输入消息后内容正确",
+        tags=["regression", "ui"],
+    )
     def test_02_input_message_value_correct(self):
         """Open Web 输入消息后内容正确"""
         message = self.chat_data["message"]["text"]
         self.chat_page.input_message(message)
         self.assertEqual(self.chat_page.get_message_value(), message)
 
+    @metadata(
+        module="chat",
+        priority="P1",
+        feature="Chat",
+        description="验证清空消息后输入框为空",
+        tags=["regression", "ui"],
+    )
     def test_03_clear_message_value_empty(self):
         """Open Web 清空消息后输入框为空"""
         self.chat_page.input_message(self.chat_data["message"]["text"])
@@ -131,6 +153,13 @@ class TestOpenWebChat(unittest.TestCase):
             self.chat_data["message"]["expected_empty"],
         )
 
+    @metadata(
+        module="chat",
+        priority="P2",
+        feature="Chat",
+        description="验证新对话入口可点击",
+        tags=["regression", "ui"],
+    )
     def test_04_new_chat_clickable(self):
         """Open Web 新对话入口可点击"""
         self.chat_page.click_new_chat()

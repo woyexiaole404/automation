@@ -6,6 +6,7 @@ from base.base import take_screenshot
 from base.data_manager import DataManager
 from base.driver_manager import DriverManager
 from base.logger import get_logger
+from base.test_metadata import metadata
 from config.config_loader import get_account
 from page_object.open_web.home_page import OpenWebHomePage
 from page_object.open_web.login_page import OpenWebLoginPage
@@ -76,6 +77,13 @@ class TestOpenWebHome(unittest.TestCase):
         failed_tests = list(getattr(result, "failures", ())) + list(getattr(result, "errors", ()))
         return any(test.id() == test_id for test, _ in failed_tests)
 
+    @metadata(
+        module="home",
+        priority="P1",
+        feature="Home",
+        description="验证登录后首页加载成功",
+        tags=["smoke", "regression", "ui"],
+    )
     def test_01_home_loaded_after_login(self):
         """Open Web 登录后首页加载成功"""
         self.assertEqual(
@@ -83,11 +91,25 @@ class TestOpenWebHome(unittest.TestCase):
             self.home_data["home_loaded"]["expected"],
         )
 
+    @metadata(
+        module="home",
+        priority="P1",
+        feature="Home",
+        description="验证首页 URL 为根路径",
+        tags=["regression", "ui"],
+    )
     def test_02_current_url_is_home(self):
         """Open Web 首页 URL 为根路径"""
         current_path = urlparse(self.driver.current_url).path or "/"
         self.assertEqual(current_path, self.home_data["current_url"]["expected_path"])
 
+    @metadata(
+        module="home",
+        priority="P1",
+        feature="Home",
+        description="验证首页聊天输入框可见",
+        tags=["smoke", "regression", "ui"],
+    )
     def test_03_chat_input_visible(self):
         """Open Web 首页聊天输入框可见"""
         self.assertEqual(
@@ -95,12 +117,26 @@ class TestOpenWebHome(unittest.TestCase):
             self.home_data["chat_input"]["expected_visible"],
         )
 
+    @metadata(
+        module="home",
+        priority="P2",
+        feature="Home",
+        description="验证首页当前模型名可见",
+        tags=["regression", "ui"],
+    )
     def test_04_current_model_visible(self):
         """Open Web 首页当前模型名可见"""
         current_model = self.home_page.get_current_model()
         self.assertTrue(current_model)
         self.assertEqual(current_model, self.home_data["model"]["expected_name"])
 
+    @metadata(
+        module="home",
+        priority="P2",
+        feature="Home",
+        description="验证首页左侧导航可见",
+        tags=["regression", "ui"],
+    )
     def test_05_sidebar_visible(self):
         """Open Web 首页左侧导航可见"""
         self.assertEqual(

@@ -6,6 +6,7 @@ from base.base import take_screenshot
 from base.data_manager import DataManager
 from base.driver_manager import DriverManager
 from base.logger import get_logger
+from base.test_metadata import metadata
 from config.config_loader import get_account, get_default_invalid_password, get_web_base_url
 from page_object.open_web.login_page import OpenWebLoginPage
 
@@ -69,6 +70,13 @@ class TestOpenWebLogin(unittest.TestCase):
         failed_tests = list(getattr(result, "failures", ())) + list(getattr(result, "errors", ()))
         return any(test.id() == test_id for test, _ in failed_tests)
 
+    @metadata(
+        module="login",
+        priority="P0",
+        feature="Authentication",
+        description="验证正常登录",
+        tags=["smoke", "regression", "ui"],
+    )
     def test_01_login(self):
         """Open Web 登录成功"""
         logger.info("Open Web login test started, account_role=%s", self.account_role)
@@ -84,6 +92,13 @@ class TestOpenWebLogin(unittest.TestCase):
             self.login_data["valid_login"]["expected_login_success"],
         )
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证错误密码登录失败",
+        tags=["regression", "ui"],
+    )
     def test_02_invalid_password_login_failed(self):
         """Open Web 错误密码登录失败"""
         scenario = self.login_data["invalid_password"]
@@ -98,30 +113,65 @@ class TestOpenWebLogin(unittest.TestCase):
             scenario["expected_error_visible"],
         )
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证邮箱为空登录失败",
+        tags=["regression", "ui"],
+    )
     def test_03_empty_email_login_failed(self):
         """Open Web 邮箱为空登录失败"""
         scenario = self.login_data["empty_email"]
         self.login_page.login(scenario["email"], self.account["password"])
         self.assert_login_failed_with_error(scenario)
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证密码为空登录失败",
+        tags=["regression", "ui"],
+    )
     def test_04_empty_password_login_failed(self):
         """Open Web 密码为空登录失败"""
         scenario = self.login_data["empty_password"]
         self.login_page.login(self.account["email"], scenario["password"])
         self.assert_login_failed_with_error(scenario)
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证邮箱和密码都为空登录失败",
+        tags=["regression", "ui"],
+    )
     def test_05_empty_email_password_login_failed(self):
         """Open Web 邮箱和密码都为空登录失败"""
         scenario = self.login_data["empty_email_password"]
         self.login_page.login(scenario["email"], scenario["password"])
         self.assert_login_failed_with_error(scenario)
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证无效邮箱格式登录失败",
+        tags=["regression", "ui"],
+    )
     def test_06_invalid_email_format_login_failed(self):
         """Open Web 无效邮箱格式登录失败"""
         scenario = self.login_data["invalid_email_format"]
         self.login_page.login(scenario["email"], self.account["password"])
         self.assert_login_failed_with_error(scenario)
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证登录成功后退出登录",
+        tags=["regression", "ui"],
+    )
     def test_07_logout_after_login(self):
         """Open Web 登录成功后退出登录"""
         scenario = self.login_data["logout"]
@@ -139,6 +189,13 @@ class TestOpenWebLogin(unittest.TestCase):
             scenario["expected_login_success"],
         )
 
+    @metadata(
+        module="login",
+        priority="P1",
+        feature="Authentication",
+        description="验证未登录访问受保护页面",
+        tags=["regression", "ui"],
+    )
     def test_08_unauthenticated_protected_access(self):
         """Open Web 未登录访问受保护页面"""
         scenario = self.login_data["protected_access"]
