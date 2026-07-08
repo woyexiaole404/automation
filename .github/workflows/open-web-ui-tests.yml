@@ -28,16 +28,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.x"
-
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@v1
 
       - name: Install dependencies
         run: |
+          python3 --version
           python3 -m pip install --upgrade pip
           python3 -m pip install -r requirements.txt
 
