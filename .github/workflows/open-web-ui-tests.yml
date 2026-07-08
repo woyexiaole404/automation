@@ -2,14 +2,6 @@ name: Open Web UI Tests
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - develop
-      - main
-  pull_request:
-    branches:
-      - develop
-      - main
 
 concurrency:
   group: automation-${{ github.workflow }}-${{ github.ref }}
