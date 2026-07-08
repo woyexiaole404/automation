@@ -15,6 +15,13 @@ REQUIRED_ENV_VARS = (
 )
 
 
+def _get_bool_env(name, default=False):
+    value = os.environ.get(name)
+    if value in (None, ""):
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "y", "on")
+
+
 def _get_required_env(name):
     value = os.environ.get(name)
     if value in (None, ""):
@@ -25,6 +32,14 @@ def _get_required_env(name):
 def load_email_config():
     config = {name: _get_required_env(name) for name in REQUIRED_ENV_VARS}
     config["MAIL_PORT"] = int(config["MAIL_PORT"])
+    config["MAIL_USE_SSL"] = _get_bool_env(
+        "MAIL_USE_SSL",
+        default=config["MAIL_PORT"] == 465,
+    )
+    config["MAIL_USE_TLS"] = _get_bool_env(
+        "MAIL_USE_TLS",
+        default=not config["MAIL_USE_SSL"],
+    )
     config["MAIL_TO"] = [
         item.strip()
         for item in config["MAIL_TO"].split(",")
@@ -55,9 +70,12 @@ def send_email(subject, body, attachment_path):
         filename=attachment.name,
     )
 
-    with smtplib.SMTP(config["MAIL_HOST"], config["MAIL_PORT"]) as smtp:
+    smtp_class = smtplib.SMTP_SSL if config["MAIL_USE_SSL"] else smtplib.SMTP
+
+    with smtp_class(config["MAIL_HOST"], config["MAIL_PORT"]) as smtp:
         smtp.ehlo()
-        smtp.starttls()
-        smtp.ehlo()
+        if config["MAIL_USE_TLS"] and not config["MAIL_USE_SSL"]:
+            smtp.starttls()
+            smtp.ehlo()
         smtp.login(config["MAIL_USERNAME"], config["MAIL_PASSWORD"])
         smtp.send_message(message)
