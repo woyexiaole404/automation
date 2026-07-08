@@ -31,23 +31,21 @@ jobs:
       - name: Set up Chrome
         uses: browser-actions/setup-chrome@v1
 
-      - name: Install dependencies
-        run: |
-          python3 --version
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r requirements.txt
-
       - name: Ensure artifact directories exist
         run: |
           mkdir -p report
           mkdir -p img
           mkdir -p logs
 
-      - name: Compile Python files
-        run: python3 -m compileall .
-
-      - name: Run Open Web UI tests
-        run: python3 test_case/run.py
+      - name: Run Open Web UI tests in virtualenv
+        run: |
+          python3 --version
+          python3 -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m compileall .
+          python test_case/run.py
         # TODO: Start or connect the Open Web application before this step.
         # The current UI tests expect WEB_BASE_URL, defaulting to
         # http://localhost:3000/auth, to be reachable from the runner.
