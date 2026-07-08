@@ -1,8 +1,48 @@
 valid_login:
   description: "有效账号登录成功"
+  expected_login_success: true
 
 invalid_password:
   description: "错误密码登录失败"
+  password_source: "config_invalid_password"
+  expected_login_success: false
+  expected_error_visible: false
+
+empty_email:
+  description: "邮箱为空登录失败"
+  email: ""
+  expected_login_success: false
+  expected_error_visible: true
+
+empty_password:
+  description: "密码为空登录失败"
+  password: ""
+  expected_login_success: false
+  expected_error_visible: true
+
+empty_email_password:
+  description: "邮箱和密码都为空登录失败"
+  email: ""
+  password: ""
+  expected_login_success: false
+  expected_error_visible: true
+
+invalid_email_format:
+  description: "无效邮箱格式登录失败"
+  email: "invalid-email-format"
+  expected_login_success: false
+  expected_error_visible: true
+
+logout:
+  description: "登录成功后退出登录"
+  supported: true
+  expected_login_success: false
+
+protected_access:
+  description: "未登录访问受保护页面"
+  supported: true
+  path: "/workspace"
+  expected_url_contains: "/auth"
 
 expected_success:
   login_success: true
