@@ -4,6 +4,7 @@
 
 # Selenium UI automation
 selenium
+playwright
 
 # HTTP API scripts
 requests

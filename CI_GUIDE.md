@@ -122,6 +122,13 @@ if: always()
 report/ 下最新的 BeautifulReport HTML 文件
 ```
 
+如果 PDF 导出成功，邮件会按以下顺序附加报告：
+
+1. BeautifulReport PDF
+2. BeautifulReport HTML
+
+PDF 由 ReportManager 在 HTML 报告生成后额外导出，不替换原始 HTML。PDF 导出优先使用 `playwright` 调用 Mac mini 本机 Chrome；CI 不执行 `playwright install`，也不下载浏览器。PDF 导出失败时仍继续发送 HTML 报告。
+
 邮件标题包含：
 
 - Open Web 自动化测试报告
