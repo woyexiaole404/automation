@@ -1,5 +1,8 @@
+import os
+import struct
 import time
 import unittest
+import zlib
 
 from base.base import take_screenshot
 from base.data_manager import DataManager
@@ -13,6 +16,46 @@ from page_object.open_web.login_page import OpenWebLoginPage
 
 
 logger = get_logger(__name__)
+
+
+def _is_force_test_failure_enabled():
+    return os.environ.get("FORCE_TEST_FAILURE", "").strip().lower() == "true"
+
+
+def _png_chunk(chunk_type, data):
+    return (
+        struct.pack(">I", len(data))
+        + chunk_type
+        + data
+        + struct.pack(">I", zlib.crc32(chunk_type + data) & 0xFFFFFFFF)
+    )
+
+
+def _build_framework_verification_png(width=400, height=200):
+    rows = []
+    for y in range(height):
+        row = bytearray()
+        for x in range(width):
+            if 40 < x < 360 and 40 < y < 160:
+                row.extend((220, 30, 30))
+            else:
+                row.extend((20, 120, 220))
+        rows.append(b"\x00" + bytes(row))
+
+    raw = b"".join(rows)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + _png_chunk(b"IDAT", zlib.compress(raw))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+class FrameworkVerificationDriver:
+    def save_screenshot(self, file_path):
+        with open(file_path, "wb") as screenshot_file:
+            screenshot_file.write(_build_framework_verification_png())
+        return True
 
 
 class TestOpenWebChat(unittest.TestCase):
@@ -167,6 +210,22 @@ class TestOpenWebChat(unittest.TestCase):
             self.chat_page.is_chat_input_visible(),
             self.chat_data["chat_input"]["expected_visible"],
         )
+
+
+if _is_force_test_failure_enabled():
+    TestOpenWebChat.__unittest_skip__ = True
+    TestOpenWebChat.__unittest_skip_why__ = (
+        "FORCE_TEST_FAILURE=true，跳过正常 Chat 业务用例，仅执行框架验证用例。"
+    )
+
+    class TestFrameworkVerificationMode(unittest.TestCase):
+        def setUp(self):
+            self.driver = FrameworkVerificationDriver()
+
+        def test_force_failure_for_report_verification(self):
+            """Framework Verification Mode 强制失败验证"""
+            logger.warning("FORCE_TEST_FAILURE=true, force failure for report verification")
+            self.fail("Force failure for report verification")
 
 
 if __name__ == "__main__":
