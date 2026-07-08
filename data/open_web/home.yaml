@@ -1,0 +1,15 @@
+home_loaded:
+  expected: true
+
+current_url:
+  expected_path: "/"
+
+chat_input:
+  expected_visible: true
+
+model:
+  expected_visible: true
+  expected_name: "qwen3:8b"
+
+sidebar:
+  expected_visible: true
