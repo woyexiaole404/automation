@@ -28,13 +28,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check local Google Chrome
+      - name: Check local environment
         run: |
-          if command -v google-chrome >/dev/null 2>&1; then
-            google-chrome --version
-          else
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --version
-          fi
+          python3 --version
+          which python3
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --version
+          curl -I "$WEB_BASE_URL"
 
       - name: Ensure artifact directories exist
         run: |
@@ -44,9 +43,8 @@ jobs:
 
       - name: Run Open Web UI tests in virtualenv
         run: |
-          python3 --version
           python3 -m venv .venv
-          . .venv/bin/activate
+          source .venv/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m compileall .
@@ -71,7 +69,7 @@ jobs:
         with:
           name: open-web-screenshots
           path: img/
-          if-no-files-found: warn
+          if-no-files-found: ignore
 
       - name: Upload log artifact
         if: always()
@@ -79,4 +77,4 @@ jobs:
         with:
           name: open-web-logs
           path: logs/
-          if-no-files-found: warn
+          if-no-files-found: ignore
