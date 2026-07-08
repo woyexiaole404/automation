@@ -1,5 +1,6 @@
 import os
 import smtplib
+import mimetypes
 from email.message import EmailMessage
 from email.utils import formatdate
 from pathlib import Path
@@ -50,11 +51,9 @@ def load_email_config():
     return config
 
 
-def send_email(subject, body, attachment_path):
+def send_email(subject, body, attachment_path=None):
     config = load_email_config()
-    attachment = Path(attachment_path)
-    if not attachment.exists():
-        raise FileNotFoundError(f"Email attachment not found: {attachment}")
+    attachments = _normalize_attachments(attachment_path)
 
     message = EmailMessage()
     message["Subject"] = subject
@@ -63,12 +62,14 @@ def send_email(subject, body, attachment_path):
     message["Date"] = formatdate(localtime=True)
     message.set_content(body)
 
-    message.add_attachment(
-        attachment.read_bytes(),
-        maintype="text",
-        subtype="html",
-        filename=attachment.name,
-    )
+    for attachment in attachments:
+        maintype, subtype = _guess_attachment_type(attachment)
+        message.add_attachment(
+            attachment.read_bytes(),
+            maintype=maintype,
+            subtype=subtype,
+            filename=attachment.name,
+        )
 
     smtp_class = smtplib.SMTP_SSL if config["MAIL_USE_SSL"] else smtplib.SMTP
 
@@ -79,3 +80,31 @@ def send_email(subject, body, attachment_path):
             smtp.ehlo()
         smtp.login(config["MAIL_USERNAME"], config["MAIL_PASSWORD"])
         smtp.send_message(message)
+
+
+def _normalize_attachments(attachment_path):
+    if attachment_path is None:
+        return []
+
+    if isinstance(attachment_path, (str, os.PathLike)):
+        attachments = [Path(attachment_path)]
+    elif isinstance(attachment_path, (list, tuple, set)):
+        attachments = [Path(item) for item in attachment_path]
+    else:
+        raise TypeError(
+            "attachment_path must be None, a str/path-like object, "
+            "or a list/tuple/set of str/path-like objects."
+        )
+
+    for attachment in attachments:
+        if not attachment.exists():
+            raise FileNotFoundError(f"Email attachment not found: {attachment}")
+    return attachments
+
+
+def _guess_attachment_type(attachment):
+    content_type, _ = mimetypes.guess_type(str(attachment))
+    if not content_type:
+        return "application", "octet-stream"
+    maintype, subtype = content_type.split("/", 1)
+    return maintype, subtype
