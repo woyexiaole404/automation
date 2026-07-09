@@ -1,26 +1,12 @@
-# Runtime dependencies found from current project imports.
+# Open Web runtime dependencies.
 # Versions are intentionally not pinned because the project does not declare
 # tested package versions.
 
 # Selenium UI automation
 selenium
+
+# YAML configuration and test data
+PyYAML
+
+# BeautifulReport PDF export
 playwright
-
-# HTTP API scripts
-requests
-urllib3
-certifi
-
-# Captcha OCR
-ddddocr
-
-# MySQL access
-PyMySQL
-
-# BeautifulReport sample/tests
-lxml
-pytest
-
-# Optional: WeChat Mini Program automation, used by test_case/test.py and
-# test_case/test_tuizhanggui.py.
-minium
