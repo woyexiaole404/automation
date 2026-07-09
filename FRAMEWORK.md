@@ -215,6 +215,31 @@ Selenium 启动流程：
 - `ensure_dir(path)` 会创建目录并返回路径。
 - 提供 `report_dir()`、`img_dir()`、`img_file()`、`img_step_file()`、`img_code_file()`、`log_dir()`、`test_case_img_dir()`、`test_case_img_file()` 等路径函数。
 
+`base/test_data_manager.py`：
+
+- v5.3.0 新增的企业级测试数据管理入口。
+- 默认读取 `config/test_data.yaml`，示例文件为 `config/test_data.yaml.example`。
+- `config.yaml` 继续负责环境配置，例如 base URL、数据库、浏览器、CI secret 映射和 retry；`test_data.yaml` 只负责测试输入数据，两者职责不混用。
+- 首次读取 YAML 后缓存在 manager 实例中，后续读取直接使用缓存。
+- `reload()` 会重新读取 YAML 并刷新缓存。
+- 支持点路径读取：
+  - `TestDataManager.get("accounts.admin")`
+  - `TestDataManager.get("chat.question_normal")`
+  - `TestDataManager.get("workspace.workspace_default")`
+- 支持专用便捷接口：
+  - `get_account(name)`
+  - `get_accounts()`
+  - `get_chat_data(name)`
+  - `get_search_data(name)`
+  - `get_workspace_data(name)`
+  - `get_model_data(name)`
+  - `get(path)`
+  - `exists(path)`
+  - `list_keys(section)`
+  - `reload()`
+- 可按业务 section 横向扩展，例如 `search`、`workspace`、`knowledge`、`model`、`settings`；新增 section 不需要修改 `TestDataManager` 架构，可直接通过 `get("section.key")` 读取。
+- 当路径不存在时抛出 `KeyError`，错误信息会包含当前层级的 `Available keys`，便于排查数据命名错误。
+
 ## 四、Page Object 设计
 
 当前 `page_object/` 下只有一个页面对象文件：`index_page.py`。

@@ -1,0 +1,38 @@
+# Copy this file to config/test_data.yaml for local use.
+# Do not commit config/test_data.yaml.
+# All values below are placeholders. Do not put real secrets in this example.
+
+accounts:
+  admin:
+    email: "admin@test.com"
+    password: "admin123"
+  normal:
+    email: "user@test.com"
+    password: "user123"
+  readonly:
+    email: "readonly@test.com"
+    password: "readonly123"
+  invalid_password:
+    email: "user@test.com"
+    password: "wrong_password"
+
+chat:
+  question_normal: "What can you do?"
+  question_multiline: "Line one\nLine two"
+  question_long: "Long chat question placeholder"
+
+search:
+  keyword_normal: "project"
+  keyword_empty: ""
+  keyword_long: "long search keyword placeholder"
+
+workspace:
+  workspace_default: "Default Workspace"
+  workspace_empty: ""
+
+model:
+  default_model: "default-model"
+  fallback_model: "fallback-model"
+
+knowledge:
+  knowledge_name: "Knowledge Base"

@@ -282,6 +282,35 @@ DEFAULT_ACCOUNT_INVALID_PASSWORD
 
 不要提交 `config/config.yaml`。
 
+### 测试数据未配置
+
+v5.3.0 起，通用测试数据可以放在：
+
+```text
+config/test_data.yaml
+```
+
+本地或 CI runner 可从示例文件复制：
+
+```bash
+cp config/test_data.yaml.example config/test_data.yaml
+```
+
+`config/test_data.yaml` 负责账号、Chat、Search、Workspace、Model、Knowledge 等测试输入数据；`config/config.yaml` 继续负责环境配置。不要把真实账号、密码或敏感测试数据提交到仓库。
+
+如果未来测试用例切换到 `TestDataManager` 后缺少数据，常见表现是：
+
+```text
+Test data file not found: config/test_data.yaml
+Test data not found: accounts.xxx. Available keys: ...
+```
+
+处理方式：
+
+- 确认 runner 上存在 `config/test_data.yaml`。
+- 确认 YAML 中包含用例需要的 section 和 key。
+- 优先查看异常中的 `Available keys` 定位拼写问题。
+
 ### Chrome 无法启动
 
 表现：
