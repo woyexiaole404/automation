@@ -6,6 +6,7 @@ from base.base import take_screenshot
 from base.data_manager import DataManager
 from base.driver_manager import DriverManager
 from base.logger import get_logger
+from base.test_data_manager import TestDataManager
 from base.test_metadata import metadata
 from config.config_loader import get_account, get_default_invalid_password, get_web_base_url
 from page_object.open_web.login_page import OpenWebLoginPage
@@ -23,9 +24,25 @@ class TestOpenWebLogin(unittest.TestCase):
         self.addCleanup(self._capture_screenshot_on_failure)
         self.driver = self.driver_manager.get_driver()
         self.driver.maximize_window()
-        self.account = get_account(self.account_role)
+        self.account = self.get_test_account("normal", self.account_role)
         self.login_data = DataManager.get_data("open_web", "login")
         self.login_page = OpenWebLoginPage(self.driver)
+
+    @staticmethod
+    def get_test_account(name, fallback_role):
+        if TestDataManager.exists(f"accounts.{name}"):
+            account = TestDataManager.get_account(name)
+            if account.get("email") and account.get("password"):
+                return account
+        return get_account(fallback_role)
+
+    def get_login_scenario(self, scenario_name):
+        scenario = dict(self.login_data[scenario_name])
+        for key in ("email", "password"):
+            test_data_path = f"login.{scenario_name}.{key}"
+            if TestDataManager.exists(test_data_path):
+                scenario[key] = TestDataManager.get(test_data_path)
+        return scenario
 
     def _capture_screenshot_on_failure(self):
         if not self._has_failure_or_error():
@@ -102,7 +119,10 @@ class TestOpenWebLogin(unittest.TestCase):
     def test_02_invalid_password_login_failed(self):
         """Open Web 错误密码登录失败"""
         scenario = self.login_data["invalid_password"]
-        self.login_page.login(self.account["email"], get_default_invalid_password())
+        password = get_default_invalid_password()
+        if TestDataManager.exists("login.invalid_password.password"):
+            password = TestDataManager.get("login.invalid_password.password")
+        self.login_page.login(self.account["email"], password)
         time.sleep(1)
         self.assertEqual(
             self.login_page.is_login_successful(),
@@ -122,7 +142,7 @@ class TestOpenWebLogin(unittest.TestCase):
     )
     def test_03_empty_email_login_failed(self):
         """Open Web 邮箱为空登录失败"""
-        scenario = self.login_data["empty_email"]
+        scenario = self.get_login_scenario("empty_email")
         self.login_page.login(scenario["email"], self.account["password"])
         self.assert_login_failed_with_error(scenario)
 
@@ -135,7 +155,7 @@ class TestOpenWebLogin(unittest.TestCase):
     )
     def test_04_empty_password_login_failed(self):
         """Open Web 密码为空登录失败"""
-        scenario = self.login_data["empty_password"]
+        scenario = self.get_login_scenario("empty_password")
         self.login_page.login(self.account["email"], scenario["password"])
         self.assert_login_failed_with_error(scenario)
 
@@ -148,7 +168,7 @@ class TestOpenWebLogin(unittest.TestCase):
     )
     def test_05_empty_email_password_login_failed(self):
         """Open Web 邮箱和密码都为空登录失败"""
-        scenario = self.login_data["empty_email_password"]
+        scenario = self.get_login_scenario("empty_email_password")
         self.login_page.login(scenario["email"], scenario["password"])
         self.assert_login_failed_with_error(scenario)
 
@@ -161,7 +181,7 @@ class TestOpenWebLogin(unittest.TestCase):
     )
     def test_06_invalid_email_format_login_failed(self):
         """Open Web 无效邮箱格式登录失败"""
-        scenario = self.login_data["invalid_email_format"]
+        scenario = self.get_login_scenario("invalid_email_format")
         self.login_page.login(scenario["email"], self.account["password"])
         self.assert_login_failed_with_error(scenario)
 

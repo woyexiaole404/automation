@@ -5,6 +5,7 @@ from base.base import take_screenshot
 from base.data_manager import DataManager
 from base.driver_manager import DriverManager
 from base.logger import get_logger
+from base.test_data_manager import TestDataManager
 from base.test_metadata import metadata
 from config.config_loader import get_account
 from config.config_loader import get_web_base_url
@@ -35,7 +36,7 @@ class TestOpenWebChat(unittest.TestCase):
         cls.driver_manager = DriverManager()
         cls.driver = cls.driver_manager.get_driver()
         cls.driver.maximize_window()
-        cls.account = get_account(cls.account_role)
+        cls.account = cls.get_test_account("normal", cls.account_role)
         cls.chat_data = DataManager.get_data("open_web", "chat")
         cls.login_page = OpenWebLoginPage(cls.driver)
         cls.home_page = OpenWebHomePage(cls.driver)
@@ -53,6 +54,20 @@ class TestOpenWebChat(unittest.TestCase):
     def setUp(self) -> None:
         self.addCleanup(self._capture_screenshot_on_failure)
         self._reset_chat_state()
+
+    @staticmethod
+    def get_test_account(name, fallback_role):
+        if TestDataManager.exists(f"accounts.{name}"):
+            account = TestDataManager.get_account(name)
+            if account.get("email") and account.get("password"):
+                return account
+        return get_account(fallback_role)
+
+    @classmethod
+    def get_chat_message(cls):
+        if TestDataManager.exists("chat.question_normal"):
+            return TestDataManager.get_chat_data("question_normal")
+        return cls.chat_data["message"]["text"]
 
     @classmethod
     def _wait_login_successful(cls, timeout=30):
@@ -233,7 +248,7 @@ class TestOpenWebChat(unittest.TestCase):
     )
     def test_02_input_message_value_correct(self):
         """Open Web 输入消息后内容正确"""
-        message = self.chat_data["message"]["text"]
+        message = self.get_chat_message()
         self.chat_page.input_message(message)
         self.assertEqual(self.chat_page.get_message_value(), message)
 
@@ -246,7 +261,7 @@ class TestOpenWebChat(unittest.TestCase):
     )
     def test_03_clear_message_value_empty(self):
         """Open Web 清空消息后输入框为空"""
-        self.chat_page.input_message(self.chat_data["message"]["text"])
+        self.chat_page.input_message(self.get_chat_message())
         self.chat_page.clear_message()
         self.assertEqual(
             self.chat_page.get_message_value(),

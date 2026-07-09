@@ -6,6 +6,7 @@ from base.base import take_screenshot
 from base.data_manager import DataManager
 from base.driver_manager import DriverManager
 from base.logger import get_logger
+from base.test_data_manager import TestDataManager
 from base.test_metadata import metadata
 from config.config_loader import get_account
 from page_object.open_web.home_page import OpenWebHomePage
@@ -24,12 +25,20 @@ class TestOpenWebHome(unittest.TestCase):
         self.addCleanup(self._capture_screenshot_on_failure)
         self.driver = self.driver_manager.get_driver()
         self.driver.maximize_window()
-        self.account = get_account(self.account_role)
+        self.account = self.get_test_account("normal", self.account_role)
         self.home_data = DataManager.get_data("open_web", "home")
         self.login_page = OpenWebLoginPage(self.driver)
         self.home_page = OpenWebHomePage(self.driver)
         self.login_page.login(self.account["email"], self.account["password"])
         self._wait_home_loaded()
+
+    @staticmethod
+    def get_test_account(name, fallback_role):
+        if TestDataManager.exists(f"accounts.{name}"):
+            account = TestDataManager.get_account(name)
+            if account.get("email") and account.get("password"):
+                return account
+        return get_account(fallback_role)
 
     def _wait_home_loaded(self, timeout=12):
         deadline = time.time() + timeout

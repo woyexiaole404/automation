@@ -78,7 +78,7 @@ class TestDataManager:
     def _exists(self, path):
         try:
             self._resolve_path(path)
-        except KeyError:
+        except (FileNotFoundError, KeyError):
             return False
         return True
 

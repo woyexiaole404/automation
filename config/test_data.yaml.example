@@ -4,20 +4,33 @@
 
 accounts:
   admin:
-    email: "admin@test.com"
-    password: "admin123"
+    email: "YOUR_ADMIN_EMAIL"
+    password: "YOUR_ADMIN_PASSWORD"
   normal:
-    email: "user@test.com"
-    password: "user123"
+    email: "YOUR_NORMAL_USER_EMAIL"
+    password: "YOUR_NORMAL_USER_PASSWORD"
   readonly:
-    email: "readonly@test.com"
-    password: "readonly123"
+    email: "YOUR_READONLY_USER_EMAIL"
+    password: "YOUR_READONLY_USER_PASSWORD"
   invalid_password:
-    email: "user@test.com"
-    password: "wrong_password"
+    email: "YOUR_NORMAL_USER_EMAIL"
+    password: "WRONG_TEST_PASSWORD"
+
+login:
+  invalid_password:
+    password: "WRONG_TEST_PASSWORD"
+  empty_email:
+    email: ""
+  empty_password:
+    password: ""
+  empty_email_password:
+    email: ""
+    password: ""
+  invalid_email_format:
+    email: "invalid-email-format"
 
 chat:
-  question_normal: "What can you do?"
+  question_normal: "Open Web automated input draft"
   question_multiline: "Line one\nLine two"
   question_long: "Long chat question placeholder"
 
