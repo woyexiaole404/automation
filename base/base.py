@@ -1,27 +1,17 @@
 from datetime import datetime
 from pathlib import Path
 import re
-import time
-from config.config_loader import get_database_config
-from selenium.webdriver import Keys, ActionChains
-from selenium.webdriver.common.by import By
+
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from base.driver_manager import DriverManager
+
 from base.logger import get_logger
 from base.project_path import img_file
 
 
 logger = get_logger(__name__)
-
-
-def create_chrome_options(*arguments):
-    return DriverManager.create_options(extra_arguments=arguments)
-
-
-def create_chrome_driver(options=None):
-    return DriverManager(options=options).get_driver()
 
 
 def _normalize_screenshot_name(name):
@@ -43,49 +33,6 @@ def take_screenshot(driver, name=None, file_path=None):
     return screenshot_path
 
 
-def connect_mysql():
-    import pymysql
-
-    db_config = get_database_config()
-    missing_keys = [key for key in ("host", "user", "password", "name") if not db_config.get(key)]
-    if missing_keys:
-        raise RuntimeError(
-            "Missing database config: {}. Set environment variables or config/config.yaml.".format(
-                ", ".join(missing_keys)
-            )
-        )
-    connect = pymysql.Connect(
-        host=db_config["host"],
-        port=db_config["port"],
-        user=db_config["user"],
-        passwd=db_config["password"],
-        db=db_config["name"],
-        charset=db_config["charset"],
-    )
-    return connect
-
-class Tool:
-    @staticmethod
-    def select(sql,args):
-        connect = connect_mysql()
-        # 获取游标
-        cursor = connect.cursor()
-        # 执行sql
-        cursor.execute(sql,args=args)
-        myresult = cursor.fetchall()  # fetchall() 获取所有记录
-        connect.close()
-        return myresult
-
-    @staticmethod
-    def update(sql):
-        connect = connect_mysql()
-        cursor = connect.cursor()  # 获取游标
-        cursor.execute(sql)  # 执行sql语句
-        connect.commit()  # 执行update操作时需要写这个，否则就会更新不成功
-        result = cursor.fetchone()
-        connect.close()
-        return result
-
 class BasePage:
     DEFAULT_TIMEOUT = 10
 
@@ -95,15 +42,11 @@ class BasePage:
     def get_current_url(self):
         return self.driver.current_url
 
-    def driver_url(self): #获取当前页面url
-        return self.get_current_url()
-
     def go_url(self, url):
         self.driver.get(url)
 
     def find(self, value, by=By.XPATH):
-        element = self.driver.find_element(by, value)
-        return element
+        return self.driver.find_element(by, value)
 
     def wait_present(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         return WebDriverWait(self.driver, timeout).until(
@@ -119,25 +62,6 @@ class BasePage:
         return WebDriverWait(self.driver, timeout).until(
             EC.element_to_be_clickable((by, value))
         )
-
-    def safe_click(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
-        self.click_element(value, by=by, timeout=timeout)
-
-    def safe_input(
-        self,
-        value,
-        input_txt,
-        by=By.XPATH,
-        timeout=DEFAULT_TIMEOUT,
-        clear_first=True,
-    ):
-        self.input_text(value, input_txt, by=by, timeout=timeout, clear_first=clear_first)
-
-    def click_id_element(self, element_id):
-        self.click_element(element_id, by=By.ID)
-
-    def click_css_element(self, css):
-        self.click_element(css, by=By.CSS_SELECTOR)
 
     def click_element(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         self.wait_clickable(value, by=by, timeout=timeout).click()
@@ -157,7 +81,7 @@ class BasePage:
 
     def get_text(self, value, by=By.XPATH, timeout=DEFAULT_TIMEOUT):
         element = self.wait_present(value, by=by, timeout=timeout)
-        return element.get_attribute('textContent')
+        return element.get_attribute("textContent")
 
     def is_element_visible(self, value, by=By.XPATH, timeout=3):
         try:
@@ -177,83 +101,3 @@ class BasePage:
 
     def execute_async_script(self, script, *args):
         return self.driver.execute_async_script(script, *args)
-
-    def send_element(self, xpath, input_txt):
-        self.input_text(xpath, input_txt, clear_first=False)
-
-    def clear_element(self, xpath):
-        self.find(xpath).clear()
-
-    def clear_backspace(self, xpath):  # 用退格的方式清空输入框
-        self.find(xpath).send_keys(Keys.CONTROL + 'a')
-        self.find(xpath).send_keys(Keys.BACKSPACE)
-
-    def scroll_bottom_page(self):  # 滑动页面至底部
-        js_bottom = "window.scrollTo(0,document.body.scrollHeight)"
-        self.driver.execute_script(js_bottom)
-
-    def scroll_top_page(self):  # 滑动页面至顶部
-        data = "var q=document.documentElement.scrollTop=0"
-        self.driver.execute_script(data)
-
-    def scroll_page(self, step_length):  # 页面滑动指定像素
-        self.driver.execute_script("window.scrollBy(0,{})".format(step_length))
-
-    def switch_frame(self, xpath):
-        self.driver.switch_to.frame(self.find(xpath))
-
-    def switch_default(self):
-        self.driver.switch_to.default_content()
-
-    def mouse_hover(self, xpath):  # 鼠标悬浮
-        element_text = self.find(xpath)
-        action = ActionChains(self.driver)
-        action.move_to_element(element_text)
-        action.perform()
-        time.sleep(2)
-
-    def mouse_hover_id(self, element_id):  # 鼠标悬浮  通过元素id
-        element_text = self.find(element_id, by=By.ID)
-        action = ActionChains(self.driver)
-        action.move_to_element(element_text)
-        action.perform()
-        time.sleep(2)
-
-    def mouse_hover_css(self, css):  # 鼠标悬浮  通过css定位
-        element_text = self.find(css, by=By.CSS_SELECTOR)
-        action = ActionChains(self.driver)
-        action.move_to_element(element_text)
-        action.perform()
-        time.sleep(2)
-
-    def get_txt(self, xpath):
-        return self.get_text(xpath)
-
-    def click_js(self, xpath):
-        ele = self.find(xpath)
-        self.driver.execute_script('arguments[0].click()', ele)
-
-    def get_handles(self): #打开新标签
-        handles = self.driver.window_handles
-        return handles
-
-    def switch_to_handles(self, handles): #打开新标签
-        self.driver.switch_to.window(handles)
-
-    def maximize(self):
-        self.driver.maximize_window()
-
-    def get_elements_num(self, value):
-        res = self.driver.find_elements(By.XPATH, value)
-        num = len(res)
-        return num
-
-    def checkbox_status(self, xpath):
-        checked = self.find(f'{xpath}').is_selected()
-        return checked
-
-    def refresh(self):
-        self.driver.refresh()
-
-    def get_attribute_value(self, xpath, key):  # 获取属性值
-        return self.find(xpath).get_attribute(key)
