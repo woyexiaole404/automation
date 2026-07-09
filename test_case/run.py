@@ -18,9 +18,11 @@ if str(PROJECT_ROOT) not in sys.path:
 from BeautifulReport import BeautifulReport
 from base.dependency_manager import DependencyAwareSuite, DependencyManager
 from base.project_path import report_path
+from base.retry_manager import RetryManager
 from base.test_metadata import get_metadata_from_test
 from base.test_suite_manager import TestSuiteManager
 from base.test_tag_manager import TestTagManager
+from config.config_loader import get_retry_config
 
 
 def _project_test_dir(project):
@@ -102,19 +104,34 @@ def _discover_test_files(project=DEFAULT_PROJECT, module=None, suite=None, tag=N
     ]
 
 
-def _discover_module_suites(project=DEFAULT_PROJECT, modules=None):
+def _discover_single_module_suite(project, module_name):
+    project_test_dir = _project_test_dir(project)
+    return unittest.defaultTestLoader.discover(
+        start_dir=str(project_test_dir),
+        pattern=_test_pattern(module_name),
+        top_level_dir=str(TEST_CASE_DIR),
+    )
+
+
+def _discover_module_suites(project=DEFAULT_PROJECT, modules=None, retry_manager=None):
     available_modules = _available_modules(project)
     dependency_manager = DependencyManager()
-    project_test_dir = _project_test_dir(project)
     module_suites = []
     module_names = modules or dependency_manager.order_modules(available_modules)
 
     for module_name in dependency_manager.order_modules(module_names):
-        suite = unittest.defaultTestLoader.discover(
-            start_dir=str(project_test_dir),
-            pattern=_test_pattern(module_name),
-            top_level_dir=str(TEST_CASE_DIR),
+        suite_factory = (
+            lambda selected_module=module_name: _discover_single_module_suite(
+                project, selected_module
+            )
         )
+        if retry_manager is not None:
+            suite = retry_manager.wrap_suite(
+                suite_factory,
+                name=f"module {module_name}",
+            )
+        else:
+            suite = suite_factory()
         module_suites.append((module_name, suite))
 
     return module_suites
@@ -150,20 +167,20 @@ def _available_tags(project=DEFAULT_PROJECT):
     return TestTagManager().list_tags(module_suites)
 
 
-def _build_dependency_aware_suite(project=DEFAULT_PROJECT, modules=None):
-    return DependencyAwareSuite(_discover_module_suites(project, modules=modules))
-
-
-def _build_standard_suite(project=DEFAULT_PROJECT, module=None):
-    project_test_dir = _project_test_dir(project)
-    return unittest.defaultTestLoader.discover(
-        start_dir=str(project_test_dir),
-        pattern=_test_pattern(module),
-        top_level_dir=str(TEST_CASE_DIR),
+def _build_dependency_aware_suite(project=DEFAULT_PROJECT, modules=None, retry_manager=None):
+    return DependencyAwareSuite(
+        _discover_module_suites(project, modules=modules, retry_manager=retry_manager)
     )
 
 
-def _build_tagged_suite(project=DEFAULT_PROJECT, tag=None):
+def _build_standard_suite(project=DEFAULT_PROJECT, module=None, retry_manager=None):
+    suite_factory = lambda: _discover_single_module_suite(project, module)
+    if retry_manager is not None:
+        return retry_manager.wrap_suite(suite_factory, name=f"module {module}")
+    return suite_factory()
+
+
+def _build_tagged_suite(project=DEFAULT_PROJECT, tag=None, retry_manager=None):
     module_suites = _filter_module_suites_by_tag(_discover_module_suites(project), tag)
     if not module_suites:
         available_tags = ", ".join(_available_tags(project)) or "none"
@@ -171,17 +188,43 @@ def _build_tagged_suite(project=DEFAULT_PROJECT, tag=None):
             f"Unsupported tag '{tag}' for project '{project}'. "
             f"Available tags: {available_tags}."
         )
+
+    if retry_manager is not None and retry_manager.enabled:
+        module_names = [module_name for module_name, _ in module_suites]
+        tagged_module_suites = []
+        for module_name in module_names:
+            suite_factory = (
+                lambda selected_module=module_name: TestTagManager().filter_suite(
+                    _discover_single_module_suite(project, selected_module),
+                    tag,
+                )
+            )
+            tagged_module_suites.append(
+                (
+                    module_name,
+                    retry_manager.wrap_suite(
+                        suite_factory,
+                        name=f"tag {tag} module {module_name}",
+                    ),
+                )
+            )
+        return DependencyAwareSuite(tagged_module_suites)
+
     return DependencyAwareSuite(module_suites)
 
 
-def _build_suite(project=DEFAULT_PROJECT, module=None, suite=None, tag=None):
+def _build_suite(project=DEFAULT_PROJECT, module=None, suite=None, tag=None, retry_manager=None):
     _validate_module(project, module)
     suite_modules = _suite_modules(project, suite)
     if tag is not None:
-        return _build_tagged_suite(project, tag)
+        return _build_tagged_suite(project, tag, retry_manager=retry_manager)
     if module is None:
-        return _build_dependency_aware_suite(project, modules=suite_modules)
-    return _build_standard_suite(project, module)
+        return _build_dependency_aware_suite(
+            project,
+            modules=suite_modules,
+            retry_manager=retry_manager,
+        )
+    return _build_standard_suite(project, module, retry_manager=retry_manager)
 
 
 def _parse_args():
@@ -206,6 +249,11 @@ def _parse_args():
         help="Run tests by metadata tag, for example: smoke, regression, ui, login, chat, or p0.",
     )
     parser.add_argument(
+        "--retry",
+        type=int,
+        help="Retry failed tests. Only supports 0, 1, or 2.",
+    )
+    parser.add_argument(
         "--list",
         action="store_true",
         help="List runnable modules without executing tests or generating a report.",
@@ -219,6 +267,8 @@ def _parse_args():
     selected_filters = [bool(args.module), bool(args.suite), bool(args.tag)]
     if sum(selected_filters) > 1:
         parser.error("--module, --suite, and --tag cannot be used together.")
+    if args.retry is not None and args.retry not in (0, 1, 2):
+        parser.error("--retry only supports 0, 1, or 2")
     return args
 
 
@@ -228,7 +278,16 @@ def _configure_beautiful_report_template():
         BeautifulReport.config_tmp_path = str(template_path)
 
 
-def run(project=DEFAULT_PROJECT, module=None, suite=None, tag=None):
+def _build_retry_manager(cli_retry=None):
+    retry_config = get_retry_config()
+    retry_count = cli_retry if cli_retry is not None else retry_config["count"]
+    return RetryManager(
+        count=retry_count,
+        interval_seconds=retry_config["interval_seconds"],
+    )
+
+
+def run(project=DEFAULT_PROJECT, module=None, suite=None, tag=None, retry=None):
     discovered_files = _discover_test_files(project, module, suite, tag)
 
     print("Discovered test files:")
@@ -242,7 +301,14 @@ def run(project=DEFAULT_PROJECT, module=None, suite=None, tag=None):
         raise RuntimeError(f"No {pattern} files found under {project_test_dir}.")
 
     _configure_beautiful_report_template()
-    suite_tests = _build_suite(project, module, suite, tag)
+    retry_manager = _build_retry_manager(retry)
+    suite_tests = _build_suite(
+        project,
+        module,
+        suite,
+        tag,
+        retry_manager=retry_manager,
+    )
     report_output_dir = report_path()
     now = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"automation_{now}"
@@ -336,7 +402,13 @@ if __name__ == "__main__":
                 sys.exit(list_metadata_details(project=args.project))
             sys.exit(list_modules(project=args.project))
         sys.exit(
-            run(project=args.project, module=args.module, suite=args.suite, tag=args.tag)
+            run(
+                project=args.project,
+                module=args.module,
+                suite=args.suite,
+                tag=args.tag,
+                retry=args.retry,
+            )
         )
     except (RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)

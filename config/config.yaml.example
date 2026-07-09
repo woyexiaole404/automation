@@ -53,6 +53,10 @@ api:
 selenium:
   chromedriver_path: "OPTIONAL_CHROMEDRIVER_PATH"
 
+retry:
+  count: 0
+  interval_seconds: 10
+
 minium:
   project_path: "YOUR_MINI_PROGRAM_PROJECT_PATH"
   dev_tool_path: "YOUR_WECHAT_DEVTOOLS_CLI_PATH"

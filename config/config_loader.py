@@ -117,3 +117,13 @@ def get_api_config():
         "clientauthorization": get_config_value("api.clientauthorization", "API_CLIENTAUTHORIZATION"),
         "ad_preference": get_config_value("api.ad_preference", "API_AD_PREFERENCE"),
     }
+
+
+def get_retry_config():
+    return {
+        "count": _to_int(get_config_value("retry.count", "RETRY_COUNT", 0), 0),
+        "interval_seconds": _to_int(
+            get_config_value("retry.interval_seconds", "RETRY_INTERVAL_SECONDS", 10),
+            10,
+        ),
+    }
